@@ -522,7 +522,7 @@ elif page == "⚡ Match Insights":
             for a in at: a.set_color(BG); a.set_fontweight('bold')
             ax.set_facecolor(BG); ax.set_title('Toss Win → Match Win?', color=TEXT, fontsize=12, fontweight='bold')
             fig.patch.set_facecolor(BG); st.pyplot(fig); plt.close()
-
+        
         with col2:
             toss_team = filtered_valid.groupby('toss_winner').apply(
                 lambda x: (x['toss_winner']==x['match_winner']).mean()*100).sort_values(ascending=False).head(10)
