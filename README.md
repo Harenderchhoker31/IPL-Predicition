@@ -16,7 +16,7 @@ An end-to-end data analytics pipeline on the **Indian Premier League (IPL)** dat
 - 🔍 **Exploratory Data Analysis** — cleaning, merging 6 relational CSV files
 - 📊 **16 Custom Visualisations** — dark-theme charts, heatmaps, pie charts
 - 🤖 **Machine Learning** — 3 models trained to predict match winners
-- 🌐 **Streamlit Web App** — interactive dashboard with live ML prediction
+- 🌐 **Streamlit Web App** —  interactive dashboard with live ML prediction
 - 📄 **Professional PDF Report** — 15-page placement-ready report
 
 ---
