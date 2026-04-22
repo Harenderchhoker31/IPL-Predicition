@@ -13,6 +13,7 @@ from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import accuracy_score, confusion_matrix
 import os
+from collections import namedtuple
 
 # ── Page Config ──────────────────────────────────────────────
 st.set_page_config(
@@ -128,6 +129,8 @@ def style_fig(fig, ax_list=None):
         ax.set_axisbelow(True)
 
 # ── Data Loading ─────────────────────────────────────────────
+IPLData = namedtuple('IPLData', ['matches','deliv','teams','players','finals','valid','t_map','p_map'])
+
 @st.cache_data
 def load_data():
     base = os.path.dirname(__file__)
@@ -150,17 +153,23 @@ def load_data():
     deliv['season_id'] = deliv['season_id'].astype(str).str.replace('/21','').astype(int)
 
     def phase(o):
-        if o < 6:   return 'Powerplay (1-6)'
+        if o < 6:    return 'Powerplay (1-6)'
         elif o < 15: return 'Middle (7-15)'
         else:        return 'Death (16-20)'
     deliv['phase'] = deliv['over_number'].apply(phase)
 
     valid = matches[matches['result']=='win'].copy()
-    return matches, deliv, teams, players, finals, valid, t_map, p_map
+    return IPLData(matches, deliv, teams, players, finals, valid, t_map, p_map)
 
-matches, deliv, teams, players, finals, valid, t_map, p_map = load_data()
+_data = load_data()
+matches, deliv, teams, players, finals, valid, t_map, p_map = (
+    _data.matches, _data.deliv, _data.teams, _data.players,
+    _data.finals, _data.valid, _data.t_map, _data.p_map
+)
 
 # ── ML Model ─────────────────────────────────────────────────
+MLResult = namedtuple('MLResult', ['model','le_team','le_venue','win_rate','features','df'])
+
 @st.cache_resource
 def train_model():
     df = matches[matches['result']=='win'].copy().dropna(subset=['match_winner','team1','team2'])
@@ -168,31 +177,34 @@ def train_model():
     for team in df['team1'].dropna().unique():
         played = len(df[(df['team1']==team)|(df['team2']==team)])
         won    = len(df[df['match_winner']==team])
-        win_rate[team] = won/played if played>0 else 0.5
+        win_rate[team] = won/played if played > 0 else 0.5
 
-    df['team1_wr']  = df['team1'].map(win_rate).fillna(0.5)
-    df['team2_wr']  = df['team2'].map(win_rate).fillna(0.5)
-    df['toss_home'] = (df['toss_winner']==df['team1']).astype(int)
-    df['field_first']=(df['toss_decision']=='field').astype(int)
+    df['team1_wr']    = df['team1'].map(win_rate).fillna(0.5)
+    df['team2_wr']    = df['team2'].map(win_rate).fillna(0.5)
+    df['toss_home']   = (df['toss_winner']==df['team1']).astype(int)
+    df['field_first'] = (df['toss_decision']=='field').astype(int)
 
     le_team = LabelEncoder()
     le_team.fit(pd.concat([df['team1'],df['team2'],df['match_winner']]).dropna().unique())
-    df['t1_enc'] = le_team.transform(df['team1'])
-    df['t2_enc'] = le_team.transform(df['team2'])
+    df['t1_enc']     = le_team.transform(df['team1'])
+    df['t2_enc']     = le_team.transform(df['team2'])
     le_v = LabelEncoder()
-    df['venue_enc'] = le_v.fit_transform(df['venue'].fillna('Unknown'))
+    df['venue_enc']  = le_v.fit_transform(df['venue'].fillna('Unknown'))
     df['winner_enc'] = le_team.transform(df['match_winner'])
 
     features = ['t1_enc','t2_enc','team1_wr','team2_wr','toss_home','field_first','venue_enc','season']
     X = df[features]; y = df['winner_enc']
-    X_train,X_test,y_train,y_test = train_test_split(X,y,test_size=0.2,random_state=42,stratify=y)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
 
     rf = RandomForestClassifier(n_estimators=300, max_depth=10, random_state=42)
     rf.fit(X_train, y_train)
 
-    return rf, le_team, le_v, win_rate, features, df
+    return MLResult(rf, le_team, le_v, win_rate, features, df)
 
-rf_model, le_team, le_venue, win_rate, features, ml_df = train_model()
+_ml = train_model()
+rf_model, le_team, le_venue, win_rate, features, ml_df = (
+    _ml.model, _ml.le_team, _ml.le_venue, _ml.win_rate, _ml.features, _ml.df
+)
 
 # ── Sidebar ───────────────────────────────────────────────────
 with st.sidebar:
@@ -438,7 +450,7 @@ elif page == "🏏 Player Analysis":
 
     with tab2:
         n2 = st.slider("Top N bowlers", 5, 20, 10)
-        wkts = filtered_deliv[filtered_deliv['is_wicket']==True].groupby('bowler')['is_wicket'].count().sort_values(ascending=False).head(n2)
+        wkts = filtered_deliv[filtered_deliv['is_wicket']].groupby('bowler')['is_wicket'].count().sort_values(ascending=False).head(n2)
         col1, col2 = st.columns([2,1])
         with col1:
             fig, ax = plt.subplots(figsize=(9,5), facecolor=BG)
@@ -524,7 +536,7 @@ elif page == "⚡ Match Insights":
             fig.patch.set_facecolor(BG); st.pyplot(fig); plt.close()
         
         with col2:
-            toss_team = filtered_valid.groupby('toss_winner').apply(
+            toss_team = filtered_valid.groupby('toss_winner', group_keys=False).apply(
                 lambda x: (x['toss_winner']==x['match_winner']).mean()*100).sort_values(ascending=False).head(10)
             fig, ax = plt.subplots(figsize=(6,5), facecolor=BG)
             colors_t = [TEAM_COLORS.get(t, ACC2) for t in toss_team.index]
@@ -563,7 +575,7 @@ elif page == "⚡ Match Insights":
     with tab3:
         ph_order = ['Powerplay (1-6)','Middle (7-15)','Death (16-20)']
         ph_runs = filtered_deliv.groupby('phase')['total_runs'].mean().reindex(ph_order)
-        ph_wkts = filtered_deliv[filtered_deliv['is_wicket']==True].groupby('phase')['is_wicket'].count().reindex(ph_order)
+        ph_wkts = filtered_deliv[filtered_deliv['is_wicket']].groupby('phase')['is_wicket'].count().reindex(ph_order)
 
         col1, col2 = st.columns(2)
         with col1:
@@ -590,7 +602,7 @@ elif page == "⚡ Match Insights":
             st.pyplot(fig); plt.close()
 
         st.markdown("#### 🏏 Dismissal Types Distribution")
-        dismissals = filtered_deliv[filtered_deliv['is_wicket']==True]['wicket_kind'].value_counts()
+        dismissals = filtered_deliv[filtered_deliv['is_wicket']]['wicket_kind'].value_counts()
         fig, ax = plt.subplots(figsize=(9,4), facecolor=BG)
         gc_d = plt.cm.Set2(np.linspace(0,1,len(dismissals)))
         bars = ax.bar(dismissals.index, dismissals.values, color=gc_d, edgecolor='none', width=0.65)
