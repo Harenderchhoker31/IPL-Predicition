@@ -895,6 +895,277 @@ elif page == "🔎 Details":
             })
 
 # ── Footer ────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════
+# PAGE: LIVE PREDICTOR
+# ═══════════════════════════════════════════════════════════════
+elif page == "🔴 Live Predictor":
+    st.markdown('<p class="section-header">🔴 Live Match Predictor</p>', unsafe_allow_html=True)
+    st.markdown("Fetches live IPL match data from **Cricbuzz (via RapidAPI)** and predicts the winner based on current match state.")
+
+    # ── API Key input
+    st.markdown("<br>", unsafe_allow_html=True)
+    with st.expander("⚙️ API Setup — Enter your RapidAPI Cricbuzz Key", expanded=True):
+        st.markdown("""
+        <div class='insight-box'>
+        📌 Get your free key at <b>rapidapi.com/cricketapilive/api/cricbuzz-cricket</b><br>
+        Free tier: 100 requests/day — enough for live match tracking.
+        </div>""", unsafe_allow_html=True)
+        api_key = st.text_input("RapidAPI Key", type="password", placeholder="Paste your RapidAPI key here...")
+
+    # ── Helper functions
+    def fetch_live_matches(key):
+        url = "https://cricbuzz-cricket.p.rapidapi.com/matches/v1/live"
+        headers = {"X-RapidAPI-Key": key, "X-RapidAPI-Host": "cricbuzz-cricket.p.rapidapi.com"}
+        r = requests.get(url, headers=headers, timeout=10)
+        r.raise_for_status()
+        return r.json()
+
+    def fetch_match_scorecard(key, match_id):
+        url = f"https://cricbuzz-cricket.p.rapidapi.com/mcenter/v1/{match_id}/scard"
+        headers = {"X-RapidAPI-Key": key, "X-RapidAPI-Host": "cricbuzz-cricket.p.rapidapi.com"}
+        r = requests.get(url, headers=headers, timeout=10)
+        r.raise_for_status()
+        return r.json()
+
+    def parse_live_matches(data):
+        """Extract IPL matches from live feed."""
+        matches_list = []
+        for type_group in data.get('typeMatches', []):
+            for series_group in type_group.get('seriesMatches', []):
+                series_wrapper = series_group.get('seriesAdWrapper', {})
+                series_name = series_wrapper.get('seriesName', '')
+                if 'IPL' not in series_name and 'Indian Premier' not in series_name:
+                    continue
+                for m in series_wrapper.get('matches', []):
+                    mi = m.get('matchInfo', {})
+                    ms = m.get('matchScore', {})
+                    t1 = mi.get('team1', {}).get('teamName', 'Team 1')
+                    t2 = mi.get('team2', {}).get('teamName', 'Team 2')
+                    status = mi.get('status', '')
+                    state  = mi.get('state', '')
+                    mid    = mi.get('matchId', '')
+                    venue  = mi.get('venueInfo', {}).get('ground', 'Unknown')
+
+                    # Scores
+                    t1_score = ms.get('team1Score', {})
+                    t2_score = ms.get('team2Score', {})
+
+                    def fmt_score(sc):
+                        inn = sc.get('inngs1', {})
+                        if not inn: return 'Yet to bat'
+                        r = inn.get('runs', 0); w = inn.get('wickets', 0); ov = inn.get('overs', 0)
+                        return f"{r}/{w} ({ov} ov)"
+
+                    matches_list.append({
+                        'match_id': mid,
+                        'team1': t1, 'team2': t2,
+                        'score1': fmt_score(t1_score),
+                        'score2': fmt_score(t2_score),
+                        'status': status, 'state': state,
+                        'venue': venue, 'series': series_name,
+                    })
+        return matches_list
+
+    def win_probability(team1, team2, score1_str, score2_str, innings):
+        """
+        Rule-based win probability using historical win rates + current match state.
+        innings=1 means team1 is batting first, innings=2 means team2 chasing.
+        """
+        # Historical win rates from our dataset
+        wr = {}
+        for team in valid['match_winner'].dropna().unique():
+            played = len(matches[(matches['team1']==team)|(matches['team2']==team)])
+            won    = len(valid[valid['match_winner']==team])
+            wr[team] = won / played if played > 0 else 0.5
+
+        # Fuzzy match team names to our dataset names
+        def best_match(name):
+            name_l = name.lower()
+            for k in wr:
+                if any(w in k.lower() for w in name_l.split()):
+                    return k
+            return None
+
+        t1_key = best_match(team1)
+        t2_key = best_match(team2)
+        t1_wr  = wr.get(t1_key, 0.5) if t1_key else 0.5
+        t2_wr  = wr.get(t2_key, 0.5) if t2_key else 0.5
+
+        # Parse current scores
+        def parse_score(s):
+            try:
+                parts = s.split('(')[0].strip().split('/')
+                runs = int(parts[0]); wkts = int(parts[1]) if len(parts)>1 else 0
+                overs_str = s.split('(')[1].replace('ov)','').strip() if '(' in s else '0'
+                overs = float(overs_str)
+                return runs, wkts, overs
+            except Exception:
+                return 0, 0, 0
+
+        r1, w1, ov1 = parse_score(score1_str)
+        r2, w2, ov2 = parse_score(score2_str)
+
+        if innings == 1:
+            # 1st innings: project final score, estimate win prob
+            balls_left = max(0, (20 - ov1) * 6)
+            proj_runs  = r1 + (r1 / max(ov1 * 6, 1)) * balls_left if ov1 > 0 else 160
+            # More runs projected + historical wr = higher chance
+            t1_prob = 0.4 * (t1_wr / (t1_wr + t2_wr)) + 0.6 * min(proj_runs / 180, 1.0)
+            t1_prob = min(max(t1_prob, 0.05), 0.95)
+        else:
+            # 2nd innings: chasing team probability
+            target = r1 + 1
+            runs_needed = target - r2
+            balls_left  = max(1, (20 - ov2) * 6)
+            wkts_left   = 10 - w2
+            rrr = runs_needed / (balls_left / 6) if balls_left > 0 else 99
+            crr = r2 / max(ov2, 0.1)
+
+            # Chase difficulty factor
+            chase_factor = 1 - min(max((rrr - crr) / 12, 0), 1)
+            t2_prob = 0.35 * (t2_wr / (t1_wr + t2_wr)) + 0.45 * chase_factor + 0.2 * (wkts_left / 10)
+            t2_prob = min(max(t2_prob, 0.05), 0.95)
+            t1_prob = 1 - t2_prob
+
+        return round(t1_prob * 100, 1), round((1 - t1_prob) * 100, 1)
+
+    # ── Main UI
+    if not api_key:
+        st.info("🔑 Enter your RapidAPI key above to fetch live matches. Or use **Demo Mode** below to test with a sample match.")
+
+        # Demo mode
+        st.markdown("---")
+        st.markdown("#### 🧪 Demo Mode — Simulate a Live Match")
+        demo_col1, demo_col2 = st.columns(2)
+        all_team_names = sorted(valid['match_winner'].dropna().unique().tolist())
+        with demo_col1:
+            d_team1 = st.selectbox("🔵 Batting Team", all_team_names, key='demo_t1')
+            d_runs1 = st.number_input("Current Runs", 0, 300, 120, key='demo_r1')
+            d_wkts1 = st.number_input("Wickets Down", 0, 10, 3, key='demo_w1')
+            d_overs1= st.number_input("Overs Completed", 0.0, 20.0, 14.0, step=0.1, key='demo_o1')
+        with demo_col2:
+            d_team2 = st.selectbox("🔴 Bowling Team", [t for t in all_team_names if t != d_team1], key='demo_t2')
+            d_innings = st.radio("Innings", ["1st Innings", "2nd Innings (Chase)"], key='demo_inn')
+            if d_innings == "2nd Innings (Chase)":
+                d_target = st.number_input("Target", 100, 300, 175, key='demo_tgt')
+                d_runs2  = st.number_input("Chasing Team Runs", 0, 300, 80, key='demo_r2')
+                d_wkts2  = st.number_input("Wickets Down", 0, 10, 2, key='demo_w2')
+                d_overs2 = st.number_input("Overs Completed", 0.0, 20.0, 10.0, step=0.1, key='demo_o2')
+
+        if st.button("🚀 Predict Demo Match", use_container_width=True):
+            if d_innings == "1st Innings":
+                score1_str = f"{d_runs1}/{d_wkts1} ({d_overs1} ov)"
+                score2_str = "Yet to bat"
+                p1, p2 = win_probability(d_team1, d_team2, score1_str, score2_str, 1)
+            else:
+                score1_str = f"{d_target - 1}/10 (20.0 ov)"
+                score2_str = f"{d_runs2}/{d_wkts2} ({d_overs2} ov)"
+                p1, p2 = win_probability(d_team1, d_team2, score1_str, score2_str, 2)
+
+            c1_color = TEAM_COLORS.get(d_team1, ACC2)
+            c2_color = TEAM_COLORS.get(d_team2, ACC1)
+
+            st.markdown("<br>", unsafe_allow_html=True)
+            r1, r2 = st.columns(2)
+            r1.markdown(f"""
+            <div style="background:linear-gradient(135deg,{c1_color}22,{c1_color}11);
+            border:2px solid {c1_color};border-radius:12px;padding:20px;text-align:center;">
+                <div style="font-size:1.4rem;font-weight:800;color:{c1_color}">{d_team1}</div>
+                <div style="font-size:2.5rem;font-weight:900;color:{c1_color}">{p1}%</div>
+                <div style="color:{MUTED};font-size:0.85rem">Win Probability</div>
+            </div>""", unsafe_allow_html=True)
+            r2.markdown(f"""
+            <div style="background:linear-gradient(135deg,{c2_color}22,{c2_color}11);
+            border:2px solid {c2_color};border-radius:12px;padding:20px;text-align:center;">
+                <div style="font-size:1.4rem;font-weight:800;color:{c2_color}">{d_team2}</div>
+                <div style="font-size:2.5rem;font-weight:900;color:{c2_color}">{p2}%</div>
+                <div style="color:{MUTED};font-size:0.85rem">Win Probability</div>
+            </div>""", unsafe_allow_html=True)
+
+            # Probability bar
+            st.markdown("<br>", unsafe_allow_html=True)
+            fig, ax = plt.subplots(figsize=(9, 1.2), facecolor=BG)
+            ax.barh([0], [p1], color=c1_color, height=0.5)
+            ax.barh([0], [p2], left=[p1], color=c2_color, height=0.5)
+            ax.text(p1/2, 0, f"{d_team1[:12]} {p1}%", ha='center', va='center', color='white', fontsize=9, fontweight='bold')
+            ax.text(p1 + p2/2, 0, f"{p2}% {d_team2[:12]}", ha='center', va='center', color='white', fontsize=9, fontweight='bold')
+            ax.set_xlim(0, 100); ax.axis('off')
+            fig.patch.set_facecolor(BG); plt.tight_layout()
+            st.pyplot(fig); plt.close()
+
+            winner = d_team1 if p1 > p2 else d_team2
+            w_color = c1_color if p1 > p2 else c2_color
+            st.markdown(f"<div class='insight-box'>🏆 <b>Predicted Winner:</b> <span style='color:{w_color}'>{winner}</span> with <b>{max(p1,p2)}%</b> probability</div>", unsafe_allow_html=True)
+
+    else:
+        # ── Live API mode
+        if st.button("🔄 Fetch Live IPL Matches", use_container_width=True):
+            try:
+                with st.spinner("Fetching live matches from Cricbuzz..."):
+                    raw = fetch_live_matches(api_key)
+                    live_list = parse_live_matches(raw)
+
+                if not live_list:
+                    st.warning("⚠️ No live IPL matches right now. Try during an IPL match window.")
+                else:
+                    st.success(f"✅ Found {len(live_list)} live IPL match(es)!")
+                    for m in live_list:
+                        t1c = TEAM_COLORS.get(m['team1'], ACC2)
+                        t2c = TEAM_COLORS.get(m['team2'], ACC1)
+                        st.markdown(f"""
+                        <div style="background:{CARD};border:1px solid #30363d;border-radius:12px;padding:18px;margin:10px 0;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;">
+                                <div style="text-align:center;flex:1;">
+                                    <div style="font-size:1.1rem;font-weight:800;color:{t1c}">{m['team1']}</div>
+                                    <div style="font-size:1.4rem;font-weight:700;color:{TEXT}">{m['score1']}</div>
+                                </div>
+                                <div style="text-align:center;padding:0 20px;">
+                                    <div style="font-size:1.2rem;color:{MUTED}">VS</div>
+                                    <div style="font-size:0.7rem;color:{MUTED};margin-top:4px">{m['venue'][:30]}</div>
+                                </div>
+                                <div style="text-align:center;flex:1;">
+                                    <div style="font-size:1.1rem;font-weight:800;color:{t2c}">{m['team2']}</div>
+                                    <div style="font-size:1.4rem;font-weight:700;color:{TEXT}">{m['score2']}</div>
+                                </div>
+                            </div>
+                            <div style="text-align:center;margin-top:10px;font-size:0.82rem;color:{ACC1}">{m['status']}</div>
+                        </div>""", unsafe_allow_html=True)
+
+                        # Determine innings
+                        is_chase = m['score2'] != 'Yet to bat'
+                        inn_num  = 2 if is_chase else 1
+                        p1, p2   = win_probability(m['team1'], m['team2'], m['score1'], m['score2'], inn_num)
+                        wc = t1c if p1 > p2 else t2c
+                        wn = m['team1'] if p1 > p2 else m['team2']
+
+                        fig, ax = plt.subplots(figsize=(9, 1.2), facecolor=BG)
+                        ax.barh([0], [p1], color=t1c, height=0.5)
+                        ax.barh([0], [p2], left=[p1], color=t2c, height=0.5)
+                        ax.text(p1/2, 0, f"{m['team1'][:12]} {p1}%", ha='center', va='center', color='white', fontsize=9, fontweight='bold')
+                        ax.text(p1 + p2/2, 0, f"{p2}% {m['team2'][:12]}", ha='center', va='center', color='white', fontsize=9, fontweight='bold')
+                        ax.set_xlim(0, 100); ax.axis('off')
+                        fig.patch.set_facecolor(BG); plt.tight_layout()
+                        st.pyplot(fig); plt.close()
+                        st.markdown(f"<div class='insight-box'>🏆 <b>Predicted Winner:</b> <span style='color:{wc}'>{wn}</span> — <b>{max(p1,p2)}%</b> probability</div>", unsafe_allow_html=True)
+                        st.markdown("---")
+
+            except requests.exceptions.HTTPError as e:
+                if '403' in str(e) or '401' in str(e):
+                    st.error("🔒 Invalid API key. Check your RapidAPI key and make sure you've subscribed to the Cricbuzz API.")
+                elif '429' in str(e):
+                    st.error("⏱️ Rate limit exceeded. Free tier allows 100 requests/day.")
+                else:
+                    st.error(f"API error: {e}")
+            except Exception as e:
+                st.error(f"Error: {e}")
+
+        st.markdown(f"""
+        <div class='insight-box' style='margin-top:16px;'>
+        💡 <b>How it works:</b> Fetches live score from Cricbuzz → combines current run rate,
+        required run rate, wickets in hand, and historical IPL win rates to compute win probability.
+        </div>""", unsafe_allow_html=True)
+
+# ── Footer ────────────────────────────────────────────────────
 st.markdown("---")
 st.markdown("""
 <div style='text-align:center; color:#8b949e; font-size:0.78rem; padding:10px'>
