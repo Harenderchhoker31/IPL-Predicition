@@ -10,6 +10,8 @@ warnings.filterwarnings('ignore')
 import os
 import requests
 
+RAPIDAPI_KEY = os.environ.get('RAPIDAPI_KEY', 'ea6106e1d3msh6468af0b37b719bp14ee34jsn6f5cbb9dc289')
+
 # ── Page Config ──────────────────────────────────────────────
 st.set_page_config(
     page_title="IPL Analytics Dashboard 2008–2025",
