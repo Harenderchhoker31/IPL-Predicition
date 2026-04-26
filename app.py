@@ -157,6 +157,7 @@ with st.sidebar:
         "🏏 Player Analysis",
         "⚡ Match Insights",
         "🔍 Head-to-Head",
+        "🔎 Details",
     ])
     st.markdown("---")
 
@@ -627,6 +628,269 @@ elif page == "🔍 Head-to-Head":
             for sp in ax.spines.values(): sp.set_color('#30363d')
             fig.patch.set_facecolor(BG); plt.tight_layout()
             st.pyplot(fig); plt.close()
+
+# ═══════════════════════════════════════════════════════════════
+# PAGE: DETAILS  (Player Details + Team Details)
+# ═══════════════════════════════════════════════════════════════
+elif page == "🔎 Details":
+    st.markdown('<p class="section-header">🔎 Details</p>', unsafe_allow_html=True)
+
+    sub = st.tabs(["👤 Player Details", "🏟️ Team Details"])
+
+    # ─────────────────────────────────────────────
+    # SUB-TAB 1 : PLAYER DETAILS
+    # ─────────────────────────────────────────────
+    with sub[0]:
+        all_batters  = sorted(deliv['batter'].dropna().unique().tolist())
+        sel_player   = st.selectbox("Select Player", all_batters, key='pd_player')
+
+        p_bat  = deliv[deliv['batter']  == sel_player]
+        p_bowl = deliv[deliv['bowler']  == sel_player]
+        p_field= deliv[(deliv['is_wicket']) & (deliv['fielder'] == sel_player)] if 'fielder' in deliv.columns else pd.DataFrame()
+
+        # ── Batting stats
+        total_runs   = int(p_bat['batter_runs'].sum())
+        total_balls  = len(p_bat)
+        fours        = int((p_bat['batter_runs'] == 4).sum())
+        sixes        = int((p_bat['batter_runs'] == 6).sum())
+        strike_rate  = round(total_runs / total_balls * 100, 1) if total_balls > 0 else 0
+        innings_bat  = p_bat['match_id'].nunique()
+        avg_runs     = round(total_runs / innings_bat, 1) if innings_bat > 0 else 0
+        highest      = int(p_bat.groupby('match_id')['batter_runs'].sum().max()) if innings_bat > 0 else 0
+        fifties      = int((p_bat.groupby('match_id')['batter_runs'].sum() >= 50).sum())
+        hundreds     = int((p_bat.groupby('match_id')['batter_runs'].sum() >= 100).sum())
+
+        # ── Bowling stats
+        total_wkts   = int(p_bowl['is_wicket'].sum())
+        bowl_balls   = len(p_bowl)
+        bowl_runs    = int(p_bowl['total_runs'].sum())
+        economy      = round(bowl_runs / (bowl_balls / 6), 2) if bowl_balls >= 6 else 0
+        bowl_avg     = round(bowl_runs / total_wkts, 1) if total_wkts > 0 else 0
+
+        # ── Teams played for
+        teams_for = sorted(p_bat['team_batting'].dropna().unique().tolist())
+
+        # ── POTM
+        potm_count = int((matches['pom_name'] == sel_player).sum())
+
+        # ── Seasons played
+        seasons_played = sorted(p_bat['season_id'].dropna().unique().tolist())
+
+        st.markdown(f"### 👤 {sel_player}")
+        st.markdown(f"<div class='insight-box'>🏏 Teams: <b>{', '.join(teams_for) if teams_for else 'N/A'}</b> &nbsp;|&nbsp; 📅 Seasons: <b>{seasons_played[0] if seasons_played else 'N/A'} – {seasons_played[-1] if seasons_played else 'N/A'}</b> &nbsp;|&nbsp; ⭐ POTM Awards: <b>{potm_count}</b></div>", unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # KPI row — batting
+        st.markdown("#### 🏏 Batting")
+        bc1,bc2,bc3,bc4,bc5,bc6 = st.columns(6)
+        for col, val, lbl, color in [
+            (bc1, f"{total_runs:,}",  "Total Runs",    ACC1),
+            (bc2, f"{innings_bat}",   "Innings",       ACC2),
+            (bc3, f"{avg_runs}",      "Batting Avg",   ACC3),
+            (bc4, f"{strike_rate}",   "Strike Rate",   ACC4),
+            (bc5, f"{fifties}/{hundreds}", "50s/100s", ACC1),
+            (bc6, f"{highest}",       "Highest Score", ACC2),
+        ]:
+            col.markdown(f'<div class="metric-card"><p class="metric-value" style="color:{color}">{val}</p><p class="metric-label">{lbl}</p></div>', unsafe_allow_html=True)
+
+        bc7, bc8 = st.columns(2)
+        bc7.markdown(f'<div class="metric-card"><p class="metric-value" style="color:{ACC3}">{fours}</p><p class="metric-label">Fours</p></div>', unsafe_allow_html=True)
+        bc8.markdown(f'<div class="metric-card"><p class="metric-value" style="color:{ACC1}">{sixes}</p><p class="metric-label">Sixes</p></div>', unsafe_allow_html=True)
+
+        # KPI row — bowling
+        st.markdown("#### 🎯 Bowling")
+        wc1,wc2,wc3,wc4 = st.columns(4)
+        for col, val, lbl, color in [
+            (wc1, f"{total_wkts}",  "Total Wickets", ACC2),
+            (wc2, f"{economy}",     "Economy Rate",  ACC3),
+            (wc3, f"{bowl_avg}",    "Bowling Avg",   ACC4),
+            (wc4, f"{bowl_balls}",  "Balls Bowled",  ACC1),
+        ]:
+            col.markdown(f'<div class="metric-card"><p class="metric-value" style="color:{color}">{val}</p><p class="metric-label">{lbl}</p></div>', unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # Runs per season chart
+        col1, col2 = st.columns(2)
+        with col1:
+            rps = p_bat.groupby('season_id')['batter_runs'].sum().reset_index()
+            rps.columns = ['Season','Runs']
+            if not rps.empty:
+                fig, ax = plt.subplots(figsize=(7,3.5), facecolor=BG)
+                ax.fill_between(rps['Season'], rps['Runs'], alpha=0.15, color=ACC1)
+                ax.plot(rps['Season'], rps['Runs'], color=ACC1, marker='o', linewidth=2.5, markersize=6)
+                for x,y in zip(rps['Season'], rps['Runs']): ax.text(x, y+10, str(y), ha='center', color=TEXT, fontsize=7)
+                ax.set_facecolor(CARD); ax.tick_params(colors=TEXT, labelsize=8)
+                ax.set_title(f'{sel_player} — Runs per Season', color=TEXT, fontweight='bold')
+                ax.set_xlabel('Season', color=MUTED); ax.set_ylabel('Runs', color=MUTED)
+                for sp in ax.spines.values(): sp.set_color('#30363d')
+                ax.set_xticks(rps['Season']); ax.set_xticklabels(rps['Season'], rotation=45)
+                fig.patch.set_facecolor(BG); plt.tight_layout()
+                st.pyplot(fig); plt.close()
+
+        with col2:
+            wps = p_bowl[p_bowl['is_wicket']].groupby('season_id')['is_wicket'].count().reset_index()
+            wps.columns = ['Season','Wickets']
+            if not wps.empty:
+                fig, ax = plt.subplots(figsize=(7,3.5), facecolor=BG)
+                ax.fill_between(wps['Season'], wps['Wickets'], alpha=0.15, color=ACC2)
+                ax.plot(wps['Season'], wps['Wickets'], color=ACC2, marker='s', linewidth=2.5, markersize=6)
+                for x,y in zip(wps['Season'], wps['Wickets']): ax.text(x, y+0.2, str(y), ha='center', color=TEXT, fontsize=7)
+                ax.set_facecolor(CARD); ax.tick_params(colors=TEXT, labelsize=8)
+                ax.set_title(f'{sel_player} — Wickets per Season', color=TEXT, fontweight='bold')
+                ax.set_xlabel('Season', color=MUTED); ax.set_ylabel('Wickets', color=MUTED)
+                for sp in ax.spines.values(): sp.set_color('#30363d')
+                ax.set_xticks(wps['Season']); ax.set_xticklabels(wps['Season'], rotation=45)
+                fig.patch.set_facecolor(BG); plt.tight_layout()
+                st.pyplot(fig); plt.close()
+
+        # Runs per team
+        st.markdown("#### 🏏 Runs Scored Against Each Team")
+        rpt = p_bat.groupby('team_bowling')['batter_runs'].sum().sort_values(ascending=False)
+        if not rpt.empty:
+            fig, ax = plt.subplots(figsize=(10,3.5), facecolor=BG)
+            colors_rpt = [TEAM_COLORS.get(t, ACC1) for t in rpt.index]
+            bars = ax.bar(rpt.index, rpt.values, color=colors_rpt, edgecolor='none', width=0.65)
+            for bar,val in zip(bars, rpt.values):
+                ax.text(bar.get_x()+bar.get_width()/2, val+5, str(val), ha='center', color=TEXT, fontsize=7.5, fontweight='bold')
+            ax.set_facecolor(CARD); ax.tick_params(colors=TEXT, labelsize=8)
+            plt.setp(ax.get_xticklabels(), rotation=30, ha='right')
+            ax.set_title('Runs vs Each Team', color=TEXT, fontweight='bold')
+            ax.set_ylabel('Runs', color=MUTED)
+            for sp in ax.spines.values(): sp.set_color('#30363d')
+            fig.patch.set_facecolor(BG); plt.tight_layout()
+            st.pyplot(fig); plt.close()
+
+    # ─────────────────────────────────────────────
+    # SUB-TAB 2 : TEAM DETAILS
+    # ─────────────────────────────────────────────
+    with sub[1]:
+        all_team_names = sorted(valid['match_winner'].dropna().unique().tolist())
+        sel_team = st.selectbox("Select Team", all_team_names, key='td_team')
+        t_color  = TEAM_COLORS.get(sel_team, ACC1)
+
+        t_matches = matches[(matches['team1']==sel_team) | (matches['team2']==sel_team)]
+        t_valid   = t_matches[t_matches['result']=='win']
+        t_wins    = t_valid[t_valid['match_winner']==sel_team]
+        t_losses  = t_valid[t_valid['match_winner']!=sel_team]
+        t_no_res  = t_matches[t_matches['result']!='win']
+
+        total_matches  = len(t_matches)
+        total_wins     = len(t_wins)
+        total_losses   = len(t_losses)
+        no_result      = len(t_no_res)
+        win_pct        = round(total_wins / total_matches * 100, 1) if total_matches > 0 else 0
+
+        # IPL titles
+        finals_ids  = finals['id'].tolist()
+        title_years = valid[(valid['match_id'].isin(finals_ids)) & (valid['match_winner']==sel_team)]['season'].tolist()
+
+        # Runs scored & conceded
+        t_deliv_bat  = deliv[deliv['team_batting']==sel_team]
+        t_deliv_bowl = deliv[deliv['team_bowling']==sel_team]
+        runs_scored   = int(t_deliv_bat['total_runs'].sum())
+        runs_conceded = int(t_deliv_bowl['total_runs'].sum())
+        wickets_taken = int(t_deliv_bowl['is_wicket'].sum())
+        wickets_lost  = int(t_deliv_bat['is_wicket'].sum())
+
+        # Seasons participated
+        seasons_in = sorted(t_matches['season'].unique().tolist())
+
+        # Toss stats
+        toss_won  = len(t_matches[t_matches['toss_winner']==sel_team])
+        toss_pct  = round(toss_won / total_matches * 100, 1) if total_matches > 0 else 0
+
+        # Top scorer for team
+        top_scorer_s = t_deliv_bat.groupby('batter')['batter_runs'].sum().idxmax() if len(t_deliv_bat) > 0 else 'N/A'
+        top_scorer_r = int(t_deliv_bat.groupby('batter')['batter_runs'].sum().max()) if len(t_deliv_bat) > 0 else 0
+        top_wicket_s = t_deliv_bowl[t_deliv_bowl['is_wicket']].groupby('bowler')['is_wicket'].count().idxmax() if int(t_deliv_bowl['is_wicket'].sum()) > 0 else 'N/A'
+        top_wicket_w = int(t_deliv_bowl[t_deliv_bowl['is_wicket']].groupby('bowler')['is_wicket'].count().max()) if int(t_deliv_bowl['is_wicket'].sum()) > 0 else 0
+
+        st.markdown(f"### <span style='color:{t_color}'>{sel_team}</span>", unsafe_allow_html=True)
+        title_str = ', '.join(map(str, title_years)) if title_years else 'None'
+        st.markdown(f"<div class='insight-box'>🏆 IPL Titles: <b>{len(title_years)}</b> &nbsp;|&nbsp; 🗓️ Won in: <b>{title_str}</b> &nbsp;|&nbsp; 📅 Seasons: <b>{seasons_in[0]} – {seasons_in[-1]}</b></div>", unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # KPI row 1
+        st.markdown("#### 📊 Match Record")
+        mc1,mc2,mc3,mc4,mc5 = st.columns(5)
+        for col, val, lbl, color in [
+            (mc1, total_matches,        "Matches Played",  t_color),
+            (mc2, total_wins,           "Wins",            ACC3),
+            (mc3, total_losses,         "Losses",          '#ef4444'),
+            (mc4, no_result,            "No Result/Ties",  MUTED),
+            (mc5, f"{win_pct}%",        "Win %",           ACC1),
+        ]:
+            col.markdown(f'<div class="metric-card"><p class="metric-value" style="color:{color}">{val}</p><p class="metric-label">{lbl}</p></div>', unsafe_allow_html=True)
+
+        # KPI row 2
+        st.markdown("#### 🏏 Batting & Bowling")
+        rc1,rc2,rc3,rc4,rc5,rc6 = st.columns(6)
+        for col, val, lbl, color in [
+            (rc1, f"{runs_scored:,}",   "Runs Scored",    ACC1),
+            (rc2, f"{runs_conceded:,}", "Runs Conceded",  '#ef4444'),
+            (rc3, f"{wickets_taken}",   "Wickets Taken",  ACC2),
+            (rc4, f"{wickets_lost}",    "Wickets Lost",   ACC4),
+            (rc5, f"{toss_won}",        "Toss Wins",      ACC3),
+            (rc6, f"{toss_pct}%",       "Toss Win %",     ACC1),
+        ]:
+            col.markdown(f'<div class="metric-card"><p class="metric-value" style="color:{color}">{val}</p><p class="metric-label">{lbl}</p></div>', unsafe_allow_html=True)
+
+        # Top performers
+        st.markdown("<br>", unsafe_allow_html=True)
+        tp1, tp2 = st.columns(2)
+        tp1.markdown(f'<div class="insight-box">🏏 <b>Top Scorer:</b> {top_scorer_s} — {top_scorer_r:,} runs</div>', unsafe_allow_html=True)
+        tp2.markdown(f'<div class="insight-box">🎯 <b>Top Wicket-Taker:</b> {top_wicket_s} — {top_wicket_w} wickets</div>', unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # Wins per season chart
+        col1, col2 = st.columns(2)
+        with col1:
+            wps_t = t_wins.groupby('season').size().reset_index(name='Wins')
+            fig, ax = plt.subplots(figsize=(7,3.5), facecolor=BG)
+            ax.fill_between(wps_t['season'], wps_t['Wins'], alpha=0.15, color=t_color)
+            ax.plot(wps_t['season'], wps_t['Wins'], color=t_color, marker='o', linewidth=2.5, markersize=6)
+            for x,y in zip(wps_t['season'], wps_t['Wins']): ax.text(x, y+0.1, str(y), ha='center', color=TEXT, fontsize=7)
+            ax.set_facecolor(CARD); ax.tick_params(colors=TEXT, labelsize=8)
+            ax.set_title(f'{sel_team} — Wins per Season', color=TEXT, fontweight='bold')
+            ax.set_xlabel('Season', color=MUTED); ax.set_ylabel('Wins', color=MUTED)
+            for sp in ax.spines.values(): sp.set_color('#30363d')
+            ax.set_xticks(wps_t['season']); ax.set_xticklabels(wps_t['season'], rotation=45)
+            fig.patch.set_facecolor(BG); plt.tight_layout()
+            st.pyplot(fig); plt.close()
+
+        with col2:
+            rps_t = t_deliv_bat.groupby('season_id')['total_runs'].sum().reset_index()
+            rps_t.columns = ['Season','Runs']
+            fig, ax = plt.subplots(figsize=(7,3.5), facecolor=BG)
+            ax.fill_between(rps_t['Season'], rps_t['Runs'], alpha=0.15, color=ACC3)
+            ax.plot(rps_t['Season'], rps_t['Runs'], color=ACC3, marker='s', linewidth=2.5, markersize=6)
+            for x,y in zip(rps_t['Season'], rps_t['Runs']): ax.text(x, y+50, f'{y//1000}K', ha='center', color=TEXT, fontsize=7)
+            ax.set_facecolor(CARD); ax.tick_params(colors=TEXT, labelsize=8)
+            ax.set_title(f'{sel_team} — Runs Scored per Season', color=TEXT, fontweight='bold')
+            ax.set_xlabel('Season', color=MUTED); ax.set_ylabel('Runs', color=MUTED)
+            for sp in ax.spines.values(): sp.set_color('#30363d')
+            ax.set_xticks(rps_t['Season']); ax.set_xticklabels(rps_t['Season'], rotation=45)
+            fig.patch.set_facecolor(BG); plt.tight_layout()
+            st.pyplot(fig); plt.close()
+
+        # Season-by-season record table
+        st.markdown("#### 📋 Season-by-Season Record")
+        season_rec = []
+        for s in seasons_in:
+            sm = t_matches[t_matches['season']==s]
+            sw = t_wins[t_wins['season']==s]
+            sl = t_losses[t_losses['season']==s]
+            sr = t_deliv_bat[t_deliv_bat['season_id']==s]['total_runs'].sum()
+            title = '🏆' if s in title_years else ''
+            season_rec.append({'Season': s, 'Played': len(sm), 'Won': len(sw), 'Lost': len(sl), 'Runs': int(sr), 'Title': title})
+        rec_df = pd.DataFrame(season_rec)
+        st.dataframe(rec_df, use_container_width=True, hide_index=True,
+            column_config={
+                'Won':  st.column_config.ProgressColumn('Won',  max_value=int(rec_df['Played'].max()), format='%d'),
+                'Lost': st.column_config.ProgressColumn('Lost', max_value=int(rec_df['Played'].max()), format='%d'),
+            })
 
 # ── Footer ────────────────────────────────────────────────────
 st.markdown("---")
