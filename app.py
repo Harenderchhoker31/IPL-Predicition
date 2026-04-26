@@ -7,11 +7,6 @@ matplotlib.use('Agg')
 import seaborn as sns
 import warnings
 warnings.filterwarnings('ignore')
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import train_test_split, cross_val_score
-from sklearn.preprocessing import LabelEncoder
-from sklearn.metrics import accuracy_score, confusion_matrix
 import os
 
 # ── Page Config ──────────────────────────────────────────────
@@ -80,14 +75,6 @@ st.markdown("""
     
     .stPlotlyChart, .stImage { border-radius: 12px; overflow: hidden; }
     
-    .predict-box {
-        background: linear-gradient(135deg, #1c2128 0%, #161b22 100%);
-        border: 1px solid #30363d; border-radius: 12px; padding: 24px; margin: 10px 0;
-    }
-    .win-result {
-        font-size: 2rem; font-weight: 800; text-align: center; padding: 16px;
-        border-radius: 10px; margin: 10px 0;
-    }
     
     h1,h2,h3 { color: #e6edf3 !important; }
     .stSelectbox label, .stSlider label { color: #8b949e !important; }
@@ -160,40 +147,6 @@ def load_data():
 
 matches, deliv, teams, players, finals, valid, t_map, p_map = load_data()
 
-# ── ML Model ─────────────────────────────────────────────────
-@st.cache_resource
-def train_model():
-    df = matches[matches['result']=='win'].copy().dropna(subset=['match_winner','team1','team2'])
-    win_rate = {}
-    for team in df['team1'].dropna().unique():
-        played = len(df[(df['team1']==team)|(df['team2']==team)])
-        won    = len(df[df['match_winner']==team])
-        win_rate[team] = won/played if played>0 else 0.5
-
-    df['team1_wr']  = df['team1'].map(win_rate).fillna(0.5)
-    df['team2_wr']  = df['team2'].map(win_rate).fillna(0.5)
-    df['toss_home'] = (df['toss_winner']==df['team1']).astype(int)
-    df['field_first']=(df['toss_decision']=='field').astype(int)
-
-    le_team = LabelEncoder()
-    le_team.fit(pd.concat([df['team1'],df['team2'],df['match_winner']]).dropna().unique())
-    df['t1_enc'] = le_team.transform(df['team1'])
-    df['t2_enc'] = le_team.transform(df['team2'])
-    le_v = LabelEncoder()
-    df['venue_enc'] = le_v.fit_transform(df['venue'].fillna('Unknown'))
-    df['winner_enc'] = le_team.transform(df['match_winner'])
-
-    features = ['t1_enc','t2_enc','team1_wr','team2_wr','toss_home','field_first','venue_enc','season']
-    X = df[features]; y = df['winner_enc']
-    X_train,X_test,y_train,y_test = train_test_split(X,y,test_size=0.2,random_state=42,stratify=y)
-
-    rf = RandomForestClassifier(n_estimators=300, max_depth=10, random_state=42)
-    rf.fit(X_train, y_train)
-
-    return rf, le_team, le_v, win_rate, features, df
-
-rf_model, le_team, le_venue, win_rate, features, ml_df = train_model()
-
 # ── Sidebar ───────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("### 🏏 IPL Analytics")
@@ -203,7 +156,6 @@ with st.sidebar:
         "📊 Team Analysis",
         "🏏 Player Analysis",
         "⚡ Match Insights",
-        "🤖 ML Prediction",
         "🔍 Head-to-Head",
     ])
     st.markdown("---")
@@ -235,7 +187,7 @@ if page == "🏠 Home & Overview":
     st.markdown('<p class="hero-title">🏏 IPL Analytics Dashboard</p>', unsafe_allow_html=True)
     st.markdown('<p class="hero-sub">Indian Premier League · 2008–2025 · 18 Seasons · Complete Ball-by-Ball Analysis</p>', unsafe_allow_html=True)
 
-    tags = ['Python','pandas','Scikit-learn','Matplotlib','Seaborn','Streamlit','Machine Learning','EDA']
+    tags = ['Python','pandas','Matplotlib','Seaborn','Streamlit','EDA']
     st.markdown(' '.join([f'<span class="tag">{t}</span>' for t in tags]), unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -603,98 +555,6 @@ elif page == "⚡ Match Insights":
         for sp in ax.spines.values(): sp.set_color('#30363d')
         fig.patch.set_facecolor(BG); plt.tight_layout()
         st.pyplot(fig); plt.close()
-
-# ═══════════════════════════════════════════════════════════════
-# PAGE: ML PREDICTION
-# ═══════════════════════════════════════════════════════════════
-elif page == "🤖 ML Prediction":
-    st.markdown('<p class="section-header">🤖 Match Winner Prediction</p>', unsafe_allow_html=True)
-    st.markdown("Predict which team wins based on pre-match conditions using a trained **Random Forest model**.")
-
-    all_team_names = sorted(valid['match_winner'].dropna().unique().tolist())
-    all_venues = sorted(matches['venue'].dropna().unique().tolist())
-
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown('<div class="predict-box">', unsafe_allow_html=True)
-        st.markdown("#### ⚙️ Match Setup")
-        team1 = st.selectbox("🔵 Team 1", all_team_names, index=all_team_names.index('Mumbai Indians') if 'Mumbai Indians' in all_team_names else 0)
-        team2_opts = [t for t in all_team_names if t != team1]
-        team2 = st.selectbox("🔴 Team 2", team2_opts, index=team2_opts.index('Chennai Super Kings') if 'Chennai Super Kings' in team2_opts else 0)
-        toss_winner = st.selectbox("🪙 Toss Winner", [team1, team2])
-        toss_decision = st.selectbox("📋 Toss Decision", ['field','bat'])
-        venue = st.selectbox("🏟️ Venue", all_venues)
-        season = st.selectbox("📅 Season", sorted(matches['season'].unique(), reverse=True))
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    with col2:
-        st.markdown("#### 🎯 Prediction Result")
-        if st.button("🚀 Predict Winner!", use_container_width=True):
-            try:
-                t1_wr = win_rate.get(team1, 0.5)
-                t2_wr = win_rate.get(team2, 0.5)
-                toss_home = 1 if toss_winner == team1 else 0
-                field_first = 1 if toss_decision == 'field' else 0
-
-                t1_enc = le_team.transform([team1])[0] if team1 in le_team.classes_ else 0
-                t2_enc = le_team.transform([team2])[0] if team2 in le_team.classes_ else 0
-                v_enc  = le_venue.transform([venue])[0] if venue in le_venue.classes_ else 0
-
-                X_pred = np.array([[t1_enc, t2_enc, t1_wr, t2_wr, toss_home, field_first, v_enc, season]])
-                pred_enc = rf_model.predict(X_pred)[0]
-                proba = rf_model.predict_proba(X_pred)[0]
-
-                winner = le_team.inverse_transform([pred_enc])[0]
-                conf = proba.max() * 100
-
-                win_color = TEAM_COLORS.get(winner, ACC1)
-                st.markdown(f"""
-                <div style="background:linear-gradient(135deg,{win_color}22,{win_color}11);
-                border:2px solid {win_color};border-radius:12px;padding:20px;text-align:center;margin:10px 0;">
-                    <div style="font-size:2.5rem;">🏆</div>
-                    <div style="font-size:1.8rem;font-weight:800;color:{win_color}">{winner}</div>
-                    <div style="font-size:0.9rem;color:{TEXT};margin-top:6px">Predicted Winner</div>
-                    <div style="font-size:1.1rem;font-weight:600;color:{ACC3};margin-top:8px">{conf:.1f}% confidence</div>
-                </div>""", unsafe_allow_html=True)
-
-                # Win rate comparison
-                st.markdown("#### 📊 Team Win Rate Comparison")
-                fig, ax = plt.subplots(figsize=(6,2.5), facecolor=BG)
-                teams_comp = [team1, team2]
-                wrs = [t1_wr*100, t2_wr*100]
-                cols_comp = [TEAM_COLORS.get(team1, ACC2), TEAM_COLORS.get(team2, ACC1)]
-                bars = ax.barh(teams_comp, wrs, color=cols_comp, height=0.4, edgecolor='none')
-                for bar,val in zip(bars,wrs):
-                    ax.text(val+0.5, bar.get_y()+bar.get_height()/2, f'{val:.1f}%', va='center', color=TEXT, fontweight='bold')
-                ax.set_facecolor(CARD); ax.tick_params(colors=TEXT, labelsize=9)
-                ax.set_title('Historical Win Rate', color=TEXT, fontweight='bold')
-                ax.set_xlabel('Win %', color=MUTED); ax.set_xlim(0,100)
-                for sp in ax.spines.values(): sp.set_color('#30363d')
-                ax.grid(axis='x', color='#30363d', linewidth=0.5, alpha=0.6)
-                fig.patch.set_facecolor(BG); plt.tight_layout()
-                st.pyplot(fig); plt.close()
-
-            except Exception as e:
-                st.error(f"Prediction error: {e}")
-
-        st.markdown("#### 📈 Model Performance")
-        metrics = {'Random Forest': 50.2, 'Gradient Boost': 45.7, 'Logistic Reg': 23.8}
-        fig, ax = plt.subplots(figsize=(5,3), facecolor=BG)
-        bars = ax.bar(metrics.keys(), metrics.values(), color=[ACC1,ACC2,ACC3], edgecolor='none', width=0.5)
-        for bar,val in zip(bars, metrics.values()):
-            ax.text(bar.get_x()+bar.get_width()/2, val+0.5, f'{val}%', ha='center', color=TEXT, fontweight='bold')
-        ax.set_facecolor(CARD); ax.tick_params(colors=TEXT, labelsize=9)
-        ax.set_title('CV Accuracy (5-fold)', color=TEXT, fontweight='bold')
-        ax.set_ylabel('Accuracy %', color=MUTED); ax.set_ylim(0,70)
-        for sp in ax.spines.values(): sp.set_color('#30363d')
-        fig.patch.set_facecolor(BG); plt.tight_layout()
-        st.pyplot(fig); plt.close()
-
-        st.markdown(f"""
-        <div class="insight-box">
-        💡 <b>Note:</b> 50% CV accuracy in a <b>14-team prediction</b> is strong —
-        random chance = ~7%. Team win rate is the #1 predictor.
-        </div>""", unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════
 # PAGE: HEAD TO HEAD
