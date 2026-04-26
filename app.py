@@ -902,17 +902,288 @@ elif page == "🔎 Details":
 # ═══════════════════════════════════════════════════════════════
 elif page == "🔴 Live Predictor":
     st.markdown('<p class="section-header">🔴 Live Match Predictor</p>', unsafe_allow_html=True)
-    st.markdown("Fetches live IPL match data from **Cricbuzz (via RapidAPI)** and predicts the winner based on current match state.")
-
-    # ── API Key input
+    st.markdown("Fetches **live IPL scores** from Cricbuzz and predicts the winner using current match state + historical IPL win rates.")
     st.markdown("<br>", unsafe_allow_html=True)
-    with st.expander("⚙️ API Setup — Enter your RapidAPI Cricbuzz Key", expanded=True):
-        st.markdown("""
+
+    api_key = RAPIDAPI_KEY
+
+    # ── Helper functions
+    def fetch_live_matches(key):
+        url = "https://cricbuzz-cricket.p.rapidapi.com/matches/v1/live"
+        headers = {"X-RapidAPI-Key": key, "X-RapidAPI-Host": "cricbuzz-cricket.p.rapidapi.com"}
+        r = requests.get(url, headers=headers, timeout=10)
+        r.raise_for_status()
+        return r.json()
+
+    def parse_live_matches(data):
+        matches_list = []
+        for type_group in data.get('typeMatches', []):
+            for series_group in type_group.get('seriesMatches', []):
+                series_wrapper = series_group.get('seriesAdWrapper', {})
+                series_name = series_wrapper.get('seriesName', '')
+                if 'IPL' not in series_name and 'Indian Premier' not in series_name:
+                    continue
+                for m in series_wrapper.get('matches', []):
+                    mi = m.get('matchInfo', {})
+                    ms = m.get('matchScore', {})
+                    t1     = mi.get('team1', {}).get('teamName', 'Team 1')
+                    t2     = mi.get('team2', {}).get('teamName', 'Team 2')
+                    status = mi.get('status', '')
+                    state  = mi.get('state', '')
+                    mid    = mi.get('matchId', '')
+                    venue  = mi.get('venueInfo', {}).get('ground', 'Unknown')
+                    city   = mi.get('venueInfo', {}).get('city', '')
+                    desc   = mi.get('matchDesc', '')
+
+                    def fmt_score(sc):
+                        inn = sc.get('inngs1', {})
+                        if not inn: return 'Yet to bat'
+                        r = inn.get('runs', 0); w = inn.get('wickets', 0); ov = inn.get('overs', 0)
+                        return f"{r}/{w} ({ov} ov)"
+
+                    t1_score = ms.get('team1Score', {})
+                    t2_score = ms.get('team2Score', {})
+
+                    matches_list.append({
+                        'match_id': mid, 'desc': desc,
+                        'team1': t1, 'team2': t2,
+                        'score1': fmt_score(t1_score),
+                        'score2': fmt_score(t2_score),
+                        'status': status, 'state': state,
+                        'venue': venue, 'city': city,
+                        'series': series_name,
+                        't1_raw': t1_score, 't2_raw': t2_score,
+                    })
+        return matches_list
+
+    def win_probability(team1, team2, t1_raw, t2_raw):
+        # Historical win rates
+        wr = {}
+        for team in valid['match_winner'].dropna().unique():
+            played = len(matches[(matches['team1']==team)|(matches['team2']==team)])
+            won    = len(valid[valid['match_winner']==team])
+            wr[team] = won / played if played > 0 else 0.5
+
+        def best_match_wr(name):
+            name_l = name.lower()
+            for k in wr:
+                if any(w in k.lower() for w in name_l.split() if len(w) > 3):
+                    return wr[k]
+            return 0.5
+
+        t1_wr = best_match_wr(team1)
+        t2_wr = best_match_wr(team2)
+        base  = t1_wr / (t1_wr + t2_wr)  # historical base probability for t1
+
+        inn1 = t1_raw.get('inngs1', {})
+        inn2 = t2_raw.get('inngs1', {})
+
+        r1 = inn1.get('runs', 0);  w1 = inn1.get('wickets', 0);  ov1 = float(inn1.get('overs', 0))
+        r2 = inn2.get('runs', 0);  w2 = inn2.get('wickets', 0);  ov2 = float(inn2.get('overs', 0))
+
+        is_2nd_innings = bool(inn2)
+
+        if not is_2nd_innings:
+            # 1st innings: project final score
+            balls_done = int(ov1) * 6 + round((ov1 % 1) * 10)
+            balls_left = max(0, 120 - balls_done)
+            crr = r1 / (balls_done / 6) if balls_done > 0 else 8.0
+            proj = r1 + crr * (balls_left / 6)
+            wkts_factor = (10 - w1) / 10
+            score_factor = min(proj / 175, 1.2)
+            t1_prob = 0.5 * base + 0.3 * score_factor * wkts_factor + 0.2 * base
+            t1_prob = min(max(t1_prob, 0.08), 0.92)
+        else:
+            # 2nd innings chase
+            target     = r1 + 1
+            runs_need  = target - r2
+            balls_done2= int(ov2) * 6 + round((ov2 % 1) * 10)
+            balls_left2= max(1, 120 - balls_done2)
+            wkts_left2 = 10 - w2
+            rrr = runs_need / (balls_left2 / 6)
+            crr2= r2 / (balls_done2 / 6) if balls_done2 > 0 else 0
+            momentum   = min(max((crr2 - rrr + 2) / 6, 0), 1)  # 0=hard chase, 1=easy
+            wkts_factor2 = wkts_left2 / 10
+            t2_prob = 0.35 * (1 - base) + 0.40 * momentum + 0.25 * wkts_factor2
+            t2_prob = min(max(t2_prob, 0.08), 0.92)
+            t1_prob = 1 - t2_prob
+
+        return round(t1_prob * 100, 1), round((1 - t1_prob) * 100, 1)
+
+    def draw_prob_bar(t1, t2, p1, p2, c1, c2):
+        fig, ax = plt.subplots(figsize=(10, 1.0), facecolor=BG)
+        ax.barh([0], [p1], color=c1, height=0.55)
+        ax.barh([0], [p2], left=[p1], color=c2, height=0.55)
+        if p1 > 8:
+            ax.text(p1/2, 0, f"{t1[:14]}  {p1}%", ha='center', va='center', color='white', fontsize=9, fontweight='bold')
+        if p2 > 8:
+            ax.text(p1 + p2/2, 0, f"{p2}%  {t2[:14]}", ha='center', va='center', color='white', fontsize=9, fontweight='bold')
+        ax.set_xlim(0, 100); ax.axis('off')
+        fig.patch.set_facecolor(BG); plt.tight_layout(pad=0)
+        st.pyplot(fig); plt.close()
+
+    # ─────────────────────────────────────────────
+    live_tab, demo_tab = st.tabs(["🔴 Live Matches", "🧪 Demo / Simulate"])
+
+    # ── LIVE TAB
+    with live_tab:
+        col_btn, col_auto = st.columns([2,1])
+        with col_btn:
+            fetch_btn = st.button("🔄 Fetch Live IPL Matches", use_container_width=True)
+        with col_auto:
+            auto_refresh = st.checkbox("⏱️ Auto-refresh every 60s")
+
+        if auto_refresh:
+            import time
+            st.caption("Auto-refreshing... (stop by unchecking above)")
+
+        if fetch_btn or auto_refresh:
+            try:
+                with st.spinner("Fetching from Cricbuzz..."):
+                    raw        = fetch_live_matches(api_key)
+                    live_list  = parse_live_matches(raw)
+
+                if not live_list:
+                    st.warning("⚠️ No live IPL matches right now. Check back during an IPL match window.")
+                    st.info(f"📊 Total live matches across all cricket: {sum(len(sg.get('seriesAdWrapper',{}).get('matches',[])) for tg in raw.get('typeMatches',[]) for sg in tg.get('seriesMatches',[]))}")
+                else:
+                    st.success(f"✅ {len(live_list)} live IPL match(es) found!")
+                    for m in live_list:
+                        c1 = TEAM_COLORS.get(m['team1'], ACC2)
+                        c2 = TEAM_COLORS.get(m['team2'], ACC1)
+                        p1, p2 = win_probability(m['team1'], m['team2'], m['t1_raw'], m['t2_raw'])
+                        winner = m['team1'] if p1 >= p2 else m['team2']
+                        wc     = c1 if p1 >= p2 else c2
+
+                        # Match card
+                        st.markdown(f"""
+                        <div style="background:{CARD};border:1px solid #30363d;border-radius:14px;padding:20px;margin:12px 0;">
+                            <div style="font-size:0.75rem;color:{MUTED};margin-bottom:10px;">
+                                🏟️ {m['venue']}, {m['city']} &nbsp;·&nbsp; {m['desc']} &nbsp;·&nbsp; {m['series']}
+                            </div>
+                            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+                                <div style="text-align:center;flex:1;">
+                                    <div style="font-size:1.05rem;font-weight:800;color:{c1}">{m['team1']}</div>
+                                    <div style="font-size:1.6rem;font-weight:900;color:{TEXT};margin-top:4px">{m['score1']}</div>
+                                </div>
+                                <div style="text-align:center;">
+                                    <div style="font-size:1.3rem;color:{MUTED};font-weight:700">VS</div>
+                                </div>
+                                <div style="text-align:center;flex:1;">
+                                    <div style="font-size:1.05rem;font-weight:800;color:{c2}">{m['team2']}</div>
+                                    <div style="font-size:1.6rem;font-weight:900;color:{TEXT};margin-top:4px">{m['score2']}</div>
+                                </div>
+                            </div>
+                            <div style="text-align:center;margin-top:10px;font-size:0.82rem;color:{ACC1};font-weight:600">{m['status']}</div>
+                        </div>""", unsafe_allow_html=True)
+
+                        # Win probability bar
+                        draw_prob_bar(m['team1'], m['team2'], p1, p2, c1, c2)
+
+                        # Probability cards
+                        pc1, pc2 = st.columns(2)
+                        pc1.markdown(f"""
+                        <div style="background:linear-gradient(135deg,{c1}22,{c1}11);border:2px solid {c1};
+                        border-radius:10px;padding:14px;text-align:center;">
+                            <div style="font-size:0.85rem;color:{c1};font-weight:700">{m['team1']}</div>
+                            <div style="font-size:2rem;font-weight:900;color:{c1}">{p1}%</div>
+                            <div style="font-size:0.72rem;color:{MUTED}">Win Probability</div>
+                        </div>""", unsafe_allow_html=True)
+                        pc2.markdown(f"""
+                        <div style="background:linear-gradient(135deg,{c2}22,{c2}11);border:2px solid {c2};
+                        border-radius:10px;padding:14px;text-align:center;">
+                            <div style="font-size:0.85rem;color:{c2};font-weight:700">{m['team2']}</div>
+                            <div style="font-size:2rem;font-weight:900;color:{c2}">{p2}%</div>
+                            <div style="font-size:0.72rem;color:{MUTED}">Win Probability</div>
+                        </div>""", unsafe_allow_html=True)
+
+                        st.markdown(f"<div class='insight-box' style='margin-top:10px;'>🏆 <b>Predicted Winner:</b> <span style='color:{wc}'>{winner}</span> &nbsp;—&nbsp; <b>{max(p1,p2)}%</b> probability</div>", unsafe_allow_html=True)
+                        st.markdown("---")
+
+                if auto_refresh:
+                    import time; time.sleep(60); st.rerun()
+
+            except requests.exceptions.HTTPError as e:
+                if '403' in str(e) or '401' in str(e):
+                    st.error("🔒 Invalid API key or not subscribed to Cricbuzz on RapidAPI.")
+                elif '429' in str(e):
+                    st.error("⏱️ Rate limit hit. Free tier = 100 req/day.")
+                else:
+                    st.error(f"API error: {e}")
+            except Exception as e:
+                st.error(f"Error: {e}")
+
+        st.markdown(f"""
         <div class='insight-box'>
-        📌 Get your free key at <b>rapidapi.com/cricketapilive/api/cricbuzz-cricket</b><br>
-        Free tier: 100 requests/day — enough for live match tracking.
+        💡 <b>How prediction works:</b> Live score (runs, wickets, overs) →
+        current run rate vs required run rate → wickets in hand factor →
+        blended with <b>historical IPL win rates</b> from 2008–2025 dataset.
         </div>""", unsafe_allow_html=True)
-        api_key = st.text_input("RapidAPI Key", type="password", placeholder="Paste your RapidAPI key here...")
+
+    # ── DEMO TAB
+    with demo_tab:
+        st.markdown("#### 🧪 Simulate Any Match State")
+        all_team_names = sorted(valid['match_winner'].dropna().unique().tolist())
+        demo_col1, demo_col2 = st.columns(2)
+        with demo_col1:
+            d_team1  = st.selectbox("🔵 Team 1 (Batting First)", all_team_names, key='demo_t1')
+            d_runs1  = st.number_input("1st Innings Runs", 0, 300, 165, key='demo_r1')
+            d_wkts1  = st.number_input("1st Innings Wickets", 0, 10, 6, key='demo_w1')
+            d_overs1 = st.number_input("1st Innings Overs", 0.0, 20.0, 20.0, step=0.1, key='demo_o1')
+        with demo_col2:
+            d_team2  = st.selectbox("🔴 Team 2 (Chasing)", [t for t in all_team_names if t != d_team1], key='demo_t2')
+            d_runs2  = st.number_input("2nd Innings Runs", 0, 300, 87, key='demo_r2')
+            d_wkts2  = st.number_input("2nd Innings Wickets", 0, 10, 3, key='demo_w2')
+            d_overs2 = st.number_input("2nd Innings Overs", 0.0, 20.0, 11.2, step=0.1, key='demo_o2')
+
+        if st.button("🚀 Predict", use_container_width=True, key='demo_predict'):
+            t1_raw_d = {'inngs1': {'runs': d_runs1, 'wickets': d_wkts1, 'overs': d_overs1}}
+            t2_raw_d = {'inngs1': {'runs': d_runs2, 'wickets': d_wkts2, 'overs': d_overs2}} if d_runs2 > 0 or d_overs2 > 0 else {}
+            p1d, p2d = win_probability(d_team1, d_team2, t1_raw_d, t2_raw_d)
+            c1d = TEAM_COLORS.get(d_team1, ACC2)
+            c2d = TEAM_COLORS.get(d_team2, ACC1)
+            winner_d = d_team1 if p1d >= p2d else d_team2
+            wcd = c1d if p1d >= p2d else c2d
+
+            target_d = d_runs1 + 1
+            runs_need_d = target_d - d_runs2
+            balls_done_d = int(d_overs2)*6 + round((d_overs2 % 1)*10)
+            balls_left_d = max(1, 120 - balls_done_d)
+            rrr_d = round(runs_need_d / (balls_left_d / 6), 2)
+            crr_d = round(d_runs2 / (balls_done_d / 6), 2) if balls_done_d > 0 else 0
+
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            # Match state summary
+            ms1, ms2, ms3, ms4 = st.columns(4)
+            for col, val, lbl, color in [
+                (ms1, target_d,       "Target",       ACC1),
+                (ms2, runs_need_d,    "Runs Needed",  '#ef4444'),
+                (ms3, f"{crr_d}",     "CRR",          ACC3),
+                (ms4, f"{rrr_d}",     "RRR",          ACC2),
+            ]:
+                col.markdown(f'<div class="metric-card"><p class="metric-value" style="color:{color}">{val}</p><p class="metric-label">{lbl}</p></div>', unsafe_allow_html=True)
+
+            st.markdown("<br>", unsafe_allow_html=True)
+            draw_prob_bar(d_team1, d_team2, p1d, p2d, c1d, c2d)
+
+            rc1, rc2 = st.columns(2)
+            rc1.markdown(f"""
+            <div style="background:linear-gradient(135deg,{c1d}22,{c1d}11);border:2px solid {c1d};
+            border-radius:10px;padding:16px;text-align:center;">
+                <div style="font-size:0.9rem;color:{c1d};font-weight:700">{d_team1}</div>
+                <div style="font-size:2.2rem;font-weight:900;color:{c1d}">{p1d}%</div>
+                <div style="font-size:0.72rem;color:{MUTED}">Win Probability</div>
+            </div>""", unsafe_allow_html=True)
+            rc2.markdown(f"""
+            <div style="background:linear-gradient(135deg,{c2d}22,{c2d}11);border:2px solid {c2d};
+            border-radius:10px;padding:16px;text-align:center;">
+                <div style="font-size:0.9rem;color:{c2d};font-weight:700">{d_team2}</div>
+                <div style="font-size:2.2rem;font-weight:900;color:{c2d}">{p2d}%</div>
+                <div style="font-size:0.72rem;color:{MUTED}">Win Probability</div>
+            </div>""", unsafe_allow_html=True)
+
+            st.markdown(f"<div class='insight-box' style='margin-top:12px;'>🏆 <b>Predicted Winner:</b> <span style='color:{wcd}'>{winner_d}</span> &nbsp;—&nbsp; <b>{max(p1d,p2d)}%</b> probability</div>", unsafe_allow_html=True)
 
     # ── Helper functions
     def fetch_live_matches(key):
