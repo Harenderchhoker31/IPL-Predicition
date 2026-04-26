@@ -28,5 +28,3 @@ An interactive data analytics dashboard built on **18 seasons of IPL data** — 
 pip install -r requirements.txt
 streamlit run app.py
 ```
-
-**Dataset:** [Kaggle — IPL Seasons 2008–2025](https://www.kaggle.com/datasets/slidescope/ipl-seasons-2008-to-2025-dataset)
