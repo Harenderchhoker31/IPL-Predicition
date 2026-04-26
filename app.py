@@ -8,6 +8,7 @@ import seaborn as sns
 import warnings
 warnings.filterwarnings('ignore')
 import os
+import requests
 
 # ── Page Config ──────────────────────────────────────────────
 st.set_page_config(
@@ -158,6 +159,7 @@ with st.sidebar:
         "⚡ Match Insights",
         "🔍 Head-to-Head",
         "🔎 Details",
+        "🔴 Live Predictor",
     ])
     st.markdown("---")
 
