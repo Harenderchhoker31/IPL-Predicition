@@ -121,7 +121,4 @@ Contributions are welcome!
  
 - GitHub: [@Harenderchhoker31](https://github.com/Harenderchhoker31)
 ---
- 
-## 📄 License
- 
-This project is open source and available under the [MIT License](LICENSE).
+
