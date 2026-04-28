@@ -23,169 +23,319 @@ st.set_page_config(
 # ── Custom CSS ───────────────────────────────────────────────
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-    html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
+    /* ── Base ── */
+    html, body, [class*="css"] {
+        font-family: 'Inter', sans-serif;
+    }
+
+    /* ── Background: deep navy with subtle mesh ── */
     .stApp {
-        background: linear-gradient(135deg, #0a0e1a 0%, #0d1117 40%, #0f1923 70%, #0a0e1a 100%);
-        background-size: 400% 400%;
-        animation: gradientShift 18s ease infinite;
-        color: #e6edf3;
+        background-color: #060b14;
+        background-image:
+            radial-gradient(ellipse 80% 50% at 20% -10%, rgba(249,115,22,0.12) 0%, transparent 60%),
+            radial-gradient(ellipse 60% 40% at 80% 110%, rgba(59,130,246,0.08) 0%, transparent 60%),
+            radial-gradient(circle at 50% 50%, rgba(255,255,255,0.015) 1px, transparent 1px);
+        background-size: 100% 100%, 100% 100%, 28px 28px;
+        color: #e2e8f0;
+        min-height: 100vh;
     }
-    @keyframes gradientShift {
-        0%   { background-position: 0% 50%; }
-        50%  { background-position: 100% 50%; }
-        100% { background-position: 0% 50%; }
+
+    /* ── Main content area ── */
+    .block-container {
+        padding-top: 2.5rem !important;
+        padding-bottom: 4rem !important;
+        max-width: 1400px !important;
     }
-    .stApp::before {
-        content: '';
-        position: fixed; inset: 0;
-        background-image: radial-gradient(circle, #ffffff06 1px, transparent 1px);
-        background-size: 32px 32px;
-        pointer-events: none; z-index: 0;
-    }
+
+    /* ── Sidebar ── */
     [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #0d1117 0%, #111827 100%) !important;
-        border-right: 1px solid #1f2937;
-        box-shadow: 4px 0 24px rgba(0,0,0,0.5);
+        background: linear-gradient(160deg, #0a0f1e 0%, #0d1424 100%) !important;
+        border-right: 1px solid rgba(249,115,22,0.12) !important;
+        box-shadow: 2px 0 20px rgba(0,0,0,0.6) !important;
     }
-    [data-testid="stSidebar"] * { color: #e6edf3 !important; }
+    [data-testid="stSidebar"] * { color: #cbd5e1 !important; }
+    [data-testid="stSidebar"] h1,
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] h3 { color: #f97316 !important; }
+    [data-testid="stSidebar"] .stRadio > div { gap: 2px; }
+    [data-testid="stSidebar"] .stRadio label {
+        padding: 10px 14px !important;
+        border-radius: 10px !important;
+        font-size: 0.875rem !important;
+        font-weight: 500 !important;
+        color: #94a3b8 !important;
+        transition: all 0.18s ease !important;
+        cursor: pointer;
+        border: 1px solid transparent !important;
+    }
+    [data-testid="stSidebar"] .stRadio label:hover {
+        background: rgba(249,115,22,0.1) !important;
+        color: #f97316 !important;
+        border-color: rgba(249,115,22,0.2) !important;
+    }
+    [data-testid="stSidebar"] .stRadio [aria-checked="true"] + label,
+    [data-testid="stSidebar"] .stRadio label[data-checked="true"] {
+        background: rgba(249,115,22,0.15) !important;
+        color: #f97316 !important;
+        border-color: rgba(249,115,22,0.3) !important;
+        font-weight: 600 !important;
+    }
 
-    .metric-card {
-        background: rgba(17,24,39,0.75);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border: 1px solid rgba(249,115,22,0.15);
-        border-radius: 16px; padding: 22px 16px;
-        text-align: center; margin: 6px 0;
-        transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
-        position: relative; overflow: hidden;
-    }
-    .metric-card::before {
-        content: ''; position: absolute;
-        top: 0; left: 0; right: 0; height: 2px;
-        background: linear-gradient(90deg, transparent, #f97316, transparent);
-        opacity: 0; transition: opacity 0.25s;
-    }
-    .metric-card:hover { transform: translateY(-5px); border-color: rgba(249,115,22,0.5); box-shadow: 0 8px 32px rgba(249,115,22,0.18); }
-    .metric-card:hover::before { opacity: 1; }
-    .metric-value { font-size: 2.2rem; font-weight: 900; margin: 0; line-height: 1.1; letter-spacing: -0.02em; }
-    .metric-label { font-size: 0.72rem; color: #6b7280; margin-top: 6px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
-
-    .section-header {
-        background: linear-gradient(90deg, #f97316 0%, #fb923c 50%, #fbbf24 100%);
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        font-size: 1.55rem; font-weight: 900; margin: 20px 0 8px 0;
-        letter-spacing: -0.02em;
-        filter: drop-shadow(0 0 20px rgba(249,115,22,0.3));
-    }
-    .insight-box {
-        background: rgba(17,24,39,0.8);
-        backdrop-filter: blur(8px);
-        border-left: 3px solid #f97316;
-        border-radius: 0 10px 10px 0;
-        padding: 13px 18px; margin: 7px 0; font-size: 0.9rem;
-        transition: border-left-width 0.2s;
-    }
-    .insight-box:hover { border-left-width: 5px; }
-    .insight-box b { color: #f97316; }
-
+    /* ── Hero title ── */
     .hero-title {
-        font-size: 3.8rem; font-weight: 900; text-align: center;
-        background: linear-gradient(135deg, #ff8c00 0%, #f97316 30%, #fbbf24 60%, #ff8c00 100%);
+        font-size: 3.6rem;
+        font-weight: 900;
+        text-align: center;
+        background: linear-gradient(135deg, #f97316 0%, #fb923c 35%, #fbbf24 65%, #f97316 100%);
         background-size: 200% auto;
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        animation: shimmer 4s linear infinite;
-        line-height: 1.2; letter-spacing: -0.03em;
-        padding: 12px 0 4px 0;
-        filter: drop-shadow(0 0 40px rgba(249,115,22,0.6)) drop-shadow(0 0 80px rgba(251,146,60,0.3));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        animation: shimmer 5s linear infinite;
+        line-height: 1.15;
+        letter-spacing: -0.04em;
+        padding: 8px 0 6px;
+        filter: drop-shadow(0 0 30px rgba(249,115,22,0.5));
     }
     @keyframes shimmer {
         0%   { background-position: 0% center; }
         100% { background-position: 200% center; }
     }
     .hero-sub {
-        text-align: center; color: #c9d1d9;
-        font-size: 1.05rem; margin: 10px 0 28px;
-        font-weight: 500; letter-spacing: 0.01em;
-        text-shadow: 0 1px 8px rgba(0,0,0,0.8);
+        text-align: center;
+        color: #94a3b8;
+        font-size: 1.05rem;
+        font-weight: 400;
+        margin: 6px 0 28px;
+        letter-spacing: 0.02em;
     }
 
+    /* ── Section header ── */
+    .section-header {
+        font-size: 1.5rem;
+        font-weight: 800;
+        letter-spacing: -0.025em;
+        background: linear-gradient(90deg, #f97316, #fbbf24);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin: 24px 0 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid rgba(249,115,22,0.15);
+    }
+
+    /* ── Metric cards ── */
+    .metric-card {
+        background: linear-gradient(145deg, rgba(15,23,42,0.9), rgba(17,24,39,0.95));
+        border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 16px;
+        padding: 24px 18px;
+        text-align: center;
+        margin: 5px 0;
+        position: relative;
+        overflow: hidden;
+        transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+        backdrop-filter: blur(10px);
+    }
+    .metric-card::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: 16px;
+        background: linear-gradient(135deg, rgba(249,115,22,0.04), transparent 60%);
+        pointer-events: none;
+    }
+    .metric-card:hover {
+        transform: translateY(-4px);
+        border-color: rgba(249,115,22,0.35);
+        box-shadow: 0 12px 40px rgba(249,115,22,0.12), 0 4px 12px rgba(0,0,0,0.4);
+    }
+    .metric-value {
+        font-size: 2.1rem;
+        font-weight: 900;
+        margin: 0;
+        line-height: 1.1;
+        letter-spacing: -0.03em;
+    }
+    .metric-label {
+        font-size: 0.7rem;
+        color: #64748b;
+        margin-top: 7px;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        font-weight: 600;
+    }
+
+    /* ── Insight boxes ── */
+    .insight-box {
+        background: linear-gradient(135deg, rgba(15,23,42,0.8), rgba(17,24,39,0.9));
+        border: 1px solid rgba(255,255,255,0.05);
+        border-left: 3px solid #f97316;
+        border-radius: 0 12px 12px 0;
+        padding: 14px 18px;
+        margin: 8px 0;
+        font-size: 0.9rem;
+        line-height: 1.6;
+        color: #cbd5e1;
+        transition: border-left-color 0.2s, transform 0.2s;
+    }
+    .insight-box:hover {
+        border-left-color: #fbbf24;
+        transform: translateX(3px);
+    }
+    .insight-box b { color: #f97316; font-weight: 700; }
+
+    /* ── Tags ── */
     .tag {
         display: inline-block;
-        background: rgba(249,115,22,0.08);
-        border: 1px solid rgba(249,115,22,0.25);
-        border-radius: 20px; padding: 4px 14px; margin: 3px;
-        font-size: 0.75rem; color: #fb923c; font-weight: 600;
+        background: rgba(249,115,22,0.07);
+        border: 1px solid rgba(249,115,22,0.2);
+        border-radius: 999px;
+        padding: 4px 14px;
+        margin: 3px;
+        font-size: 0.75rem;
+        color: #fb923c;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        transition: background 0.15s;
     }
+    .tag:hover { background: rgba(249,115,22,0.15); }
+
+    /* ── Tabs ── */
     .stTabs [data-baseweb="tab-list"] {
-        background: rgba(17,24,39,0.6);
-        border-radius: 12px; padding: 4px; gap: 2px; border: 1px solid #1f2937;
+        background: rgba(10,15,30,0.7);
+        border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 14px;
+        padding: 5px;
+        gap: 3px;
+        backdrop-filter: blur(8px);
     }
     .stTabs [data-baseweb="tab"] {
-        border-radius: 8px; color: #6b7280 !important;
-        font-weight: 600; font-size: 0.85rem; padding: 8px 18px; transition: all 0.2s;
+        border-radius: 10px;
+        color: #64748b !important;
+        font-weight: 600;
+        font-size: 0.85rem;
+        padding: 9px 20px;
+        transition: all 0.18s ease;
+        border: 1px solid transparent;
+    }
+    .stTabs [data-baseweb="tab"]:hover {
+        color: #94a3b8 !important;
+        background: rgba(255,255,255,0.04);
     }
     .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #f97316, #fb923c) !important;
-        color: #fff !important; box-shadow: 0 4px 12px rgba(249,115,22,0.35);
+        background: linear-gradient(135deg, #ea6c0a, #f97316) !important;
+        color: #fff !important;
+        box-shadow: 0 4px 16px rgba(249,115,22,0.3);
+        border-color: rgba(249,115,22,0.4) !important;
     }
+
+    /* ── Buttons ── */
     .stButton > button {
-        background: linear-gradient(135deg, #f97316, #fb923c) !important;
-        color: white !important; border: none !important;
-        border-radius: 10px !important; font-weight: 700 !important;
-        font-size: 0.9rem !important; padding: 10px 24px !important;
-        transition: all 0.2s !important;
-        box-shadow: 0 4px 15px rgba(249,115,22,0.3) !important;
+        background: linear-gradient(135deg, #ea6c0a 0%, #f97316 100%) !important;
+        color: #fff !important;
+        border: none !important;
+        border-radius: 12px !important;
+        font-weight: 700 !important;
+        font-size: 0.9rem !important;
+        padding: 11px 28px !important;
+        letter-spacing: 0.01em !important;
+        transition: all 0.2s ease !important;
+        box-shadow: 0 4px 16px rgba(249,115,22,0.25) !important;
     }
-    .stButton > button:hover { transform: translateY(-2px) !important; box-shadow: 0 6px 20px rgba(249,115,22,0.45) !important; }
-    .stSelectbox > div > div, .stNumberInput > div > div > input, .stTextInput > div > div > input {
-        background: rgba(17,24,39,0.8) !important;
-        border: 1px solid #1f2937 !important;
-        border-radius: 8px !important; color: #e6edf3 !important;
+    .stButton > button:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 24px rgba(249,115,22,0.4) !important;
+        background: linear-gradient(135deg, #f97316 0%, #fb923c 100%) !important;
     }
+    .stButton > button:active {
+        transform: translateY(0) !important;
+    }
+
+    /* ── Form inputs ── */
+    .stSelectbox > div > div,
+    .stNumberInput > div > div > input,
+    .stTextInput > div > div > input,
+    .stTextArea > div > div > textarea {
+        background: rgba(10,15,30,0.8) !important;
+        border: 1px solid rgba(255,255,255,0.08) !important;
+        border-radius: 10px !important;
+        color: #e2e8f0 !important;
+        font-size: 0.9rem !important;
+        transition: border-color 0.18s !important;
+    }
+    .stSelectbox > div > div:focus-within,
+    .stTextInput > div > div:focus-within,
+    .stTextArea > div > div:focus-within {
+        border-color: rgba(249,115,22,0.5) !important;
+        box-shadow: 0 0 0 3px rgba(249,115,22,0.1) !important;
+    }
+    .stSelectbox label,
+    .stSlider label,
+    .stNumberInput label,
+    .stTextInput label,
+    .stTextArea label,
+    .stRadio label {
+        color: #64748b !important;
+        font-size: 0.8rem !important;
+        font-weight: 600 !important;
+        letter-spacing: 0.04em !important;
+        text-transform: uppercase !important;
+    }
+
+    /* ── Slider ── */
     .stSlider > div > div > div > div { background: #f97316 !important; }
-    ::-webkit-scrollbar { width: 5px; height: 5px; }
-    ::-webkit-scrollbar-track { background: #0a0e1a; }
-    ::-webkit-scrollbar-thumb { background: #f97316; border-radius: 3px; }
-    div[data-testid="stMetricValue"] { color: #f97316 !important; }
-    h1,h2,h3 { color: #e6edf3 !important; letter-spacing: -0.02em; }
-    .stSelectbox label, .stSlider label, .stNumberInput label { color: #6b7280 !important; font-size: 0.8rem !important; font-weight: 600 !important; }
-    .stDataFrame { border-radius: 12px; overflow: hidden; border: 1px solid #1f2937; }
-    .block-container { padding-top: 3.5rem !important; padding-bottom: 3rem !important; }
+    .stSlider > div > div > div > div > div { background: #fff !important; border: 2px solid #f97316 !important; }
 
-    /* Override weak Streamlit default text colors */
-    p, span, div { color: #e6edf3; }
-    .stMarkdown p { color: #e6edf3 !important; font-size: 0.95rem; line-height: 1.6; }
-    label { color: #9ca3af !important; }
-
-    /* Make radio buttons in sidebar look better */
-    [data-testid="stSidebar"] .stRadio > div { gap: 4px; }
-    [data-testid="stSidebar"] .stRadio label {
-        padding: 9px 14px !important;
-        border-radius: 8px !important;
-        font-size: 0.88rem !important;
-        font-weight: 500 !important;
-        transition: background 0.2s, color 0.2s !important;
-        cursor: pointer;
+    /* ── Dataframe ── */
+    .stDataFrame {
+        border-radius: 14px !important;
+        overflow: hidden !important;
+        border: 1px solid rgba(255,255,255,0.06) !important;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3) !important;
     }
-    [data-testid="stSidebar"] .stRadio label:hover { background: rgba(249,115,22,0.12) !important; color: #f97316 !important; }
 
-    /* Caption text */
-    .stCaption, caption { color: #6b7280 !important; font-size: 0.78rem !important; }
+    /* ── Alerts ── */
+    .stAlert {
+        border-radius: 12px !important;
+        border: 1px solid rgba(255,255,255,0.06) !important;
+        backdrop-filter: blur(8px) !important;
+    }
 
-    /* Warning / info / success boxes */
-    .stAlert { border-radius: 10px !important; border: 1px solid #1f2937 !important; }
+    /* ── Expander ── */
+    .streamlit-expanderHeader {
+        color: #e2e8f0 !important;
+        font-weight: 600 !important;
+        font-size: 0.9rem !important;
+        background: rgba(10,15,30,0.6) !important;
+        border-radius: 10px !important;
+        border: 1px solid rgba(255,255,255,0.06) !important;
+    }
 
-    /* Expander */
-    .streamlit-expanderHeader { color: #e6edf3 !important; font-weight: 600 !important; }
+    /* ── Typography ── */
+    h1, h2, h3, h4 { color: #f1f5f9 !important; letter-spacing: -0.02em; }
+    p, li { color: #cbd5e1; line-height: 1.65; }
+    .stMarkdown p { color: #cbd5e1 !important; font-size: 0.95rem; line-height: 1.65; }
+    .stCaption, caption { color: #475569 !important; font-size: 0.78rem !important; }
+    div[data-testid="stMetricValue"] { color: #f97316 !important; font-weight: 800 !important; }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(249,115,22,0.4); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(249,115,22,0.7); }
+
+    /* ── Hide Streamlit chrome ── */
     footer { visibility: hidden; }
     #MainMenu { visibility: hidden; }
+    [data-testid="stToolbar"] { visibility: hidden; }
 </style>
 """, unsafe_allow_html=True)
 
 # ── Color Palette ─────────────────────────────────────────────
-BG   = '#0a0e1a'; CARD = '#111827'
+BG   = '#060b14'; CARD = '#0f1729'
 ACC1 = '#f97316'; ACC2 = '#3b82f6'; ACC3 = '#22c55e'; ACC4 = '#a855f7'
 TEXT = '#e6edf3'; MUTED= '#8b949e'
 
