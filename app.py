@@ -15,7 +15,7 @@ RAPIDAPI_KEY = os.environ.get('RAPIDAPI_KEY', 'ea6106e1d3msh6468af0b37b719bp14ee
 # ── Page Config ──────────────────────────────────────────────
 st.set_page_config(
     page_title="IPL Analytics Dashboard 2008–2025",
-    page_icon="🏏",
+    page_icon="",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -249,23 +249,23 @@ matches, deliv, teams, players, finals, valid, t_map, p_map = load_data()
 
 # ── Sidebar ───────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("### 🏏 IPL Analytics")
+    st.markdown("###  IPL Analytics")
     st.markdown("---")
-    page = st.radio("📌 Navigate", [
-        "🏠 Home & Overview",
-        "📊 Team Analysis",
-        "🏏 Player Analysis",
-        "⚡ Match Insights",
-        "🔍 Head-to-Head",
-        "🔎 Details",
-        "🔴 Live Predictor",
+    page = st.radio(" Navigate", [
+        " Home & Overview",
+        " Team Analysis",
+        " Player Analysis",
+        " Match Insights",
+        " Head-to-Head",
+        " Details",
+        " Live Predictor",
     ])
     st.markdown("---")
 
     # Season filter
     all_seasons = sorted(matches['season'].unique())
     season_range = st.select_slider(
-        "📅 Season Range",
+        " Season Range",
         options=all_seasons,
         value=(all_seasons[0], all_seasons[-1])
     )
@@ -276,17 +276,17 @@ with st.sidebar:
     st.markdown("---")
     st.markdown(f"""
     <div style='font-size:0.75rem; color:#8b949e; text-align:center;'>
-    📁 {len(filtered):,} matches<br>
-    🎯 {len(filtered_deliv):,} deliveries<br>
-    📅 {season_range[0]} – {season_range[1]}
+     {len(filtered):,} matches<br>
+     {len(filtered_deliv):,} deliveries<br>
+     {season_range[0]} – {season_range[1]}
     </div>
     """, unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════
 # PAGE: HOME
 # ═══════════════════════════════════════════════════════════════
-if page == "🏠 Home & Overview":
-    st.markdown('<p class="hero-title">🏏 IPL Analytics Dashboard</p>', unsafe_allow_html=True)
+if page == " Home & Overview":
+    st.markdown('<p class="hero-title"> IPL Analytics Dashboard</p>', unsafe_allow_html=True)
     st.markdown('<p class="hero-sub">Indian Premier League · 2008–2025 · 18 Seasons · Complete Ball-by-Ball Analysis</p>', unsafe_allow_html=True)
 
     tags = ['Python','pandas','Matplotlib','Seaborn','Streamlit','EDA']
@@ -310,18 +310,18 @@ if page == "🏠 Home & Overview":
         </div>""", unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown('<p class="section-header">📌 Key Findings</p>', unsafe_allow_html=True)
+    st.markdown('<p class="section-header"> Key Findings</p>', unsafe_allow_html=True)
 
     col1, col2 = st.columns(2)
     insights_l = [
-        ("🏆", "Mumbai Indians", "Most wins — 151 across 18 seasons"),
-        ("🏏", "Virat Kohli", "Top run scorer — 8,671 runs"),
-        ("🎯", "YS Chahal", "Top wicket taker — 229 wickets"),
+        ("", "Mumbai Indians", "Most wins — 151 across 18 seasons"),
+        ("", "Virat Kohli", "Top run scorer — 8,671 runs"),
+        ("", "YS Chahal", "Top wicket taker — 229 wickets"),
     ]
     insights_r = [
-        ("⭐", "AB de Villiers", "Most Player of Match — 25 awards"),
-        ("🪙", "51.6%", "Toss win → match win rate (near-random!)"),
-        ("⚡", "Death Overs", "Highest run rate phase — decides matches"),
+        ("", "AB de Villiers", "Most Player of Match — 25 awards"),
+        ("", "51.6%", "Toss win → match win rate (near-random!)"),
+        ("", "Death Overs", "Highest run rate phase — decides matches"),
     ]
     with col1:
         for emoji, bold, text in insights_l:
@@ -331,7 +331,7 @@ if page == "🏠 Home & Overview":
             st.markdown(f'<div class="insight-box">{emoji} <b>{bold}</b> — {text}</div>', unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown('<p class="section-header">🏆 IPL Champions Timeline</p>', unsafe_allow_html=True)
+    st.markdown('<p class="section-header"> IPL Champions Timeline</p>', unsafe_allow_html=True)
 
     finals_ids = finals['id'].tolist()
     champ_df = valid[valid['match_id'].isin(finals_ids)][['season','match_winner']].sort_values('season')
@@ -352,10 +352,10 @@ if page == "🏠 Home & Overview":
 # ═══════════════════════════════════════════════════════════════
 # PAGE: TEAM ANALYSIS
 # ═══════════════════════════════════════════════════════════════
-elif page == "📊 Team Analysis":
-    st.markdown('<p class="section-header">📊 Team Analysis</p>', unsafe_allow_html=True)
+elif page == " Team Analysis":
+    st.markdown('<p class="section-header"> Team Analysis</p>', unsafe_allow_html=True)
 
-    tab1, tab2, tab3 = st.tabs(["🏆 Win Records", "🔥 Season Heatmap", "📈 Season Trends"])
+    tab1, tab2, tab3 = st.tabs([" Win Records", " Season Heatmap", " Season Trends"])
 
     with tab1:
         col1, col2 = st.columns([2,1])
@@ -378,7 +378,7 @@ elif page == "📊 Team Analysis":
             plt.close()
 
         with col2:
-            st.markdown("#### 🥇 Win Table")
+            st.markdown("####  Win Table")
             win_tbl = filtered_valid['match_winner'].value_counts().reset_index()
             win_tbl.columns = ['Team','Wins']
             win_tbl['Win%'] = (win_tbl['Wins'] / len(filtered) * 100).round(1)
@@ -408,7 +408,7 @@ elif page == "📊 Team Analysis":
         fig.patch.set_facecolor(BG)
         plt.tight_layout()
         st.pyplot(fig); plt.close()
-        st.caption("💡 Empty cells = team didn't participate that season (bans, new teams)")
+        st.caption(" Empty cells = team didn't participate that season (bans, new teams)")
 
     with tab3:
         col1, col2 = st.columns(2)
@@ -443,10 +443,10 @@ elif page == "📊 Team Analysis":
 # ═══════════════════════════════════════════════════════════════
 # PAGE: PLAYER ANALYSIS
 # ═══════════════════════════════════════════════════════════════
-elif page == "🏏 Player Analysis":
-    st.markdown('<p class="section-header">🏏 Player Analysis</p>', unsafe_allow_html=True)
+elif page == " Player Analysis":
+    st.markdown('<p class="section-header"> Player Analysis</p>', unsafe_allow_html=True)
 
-    tab1, tab2, tab3 = st.tabs(["🏏 Batsmen", "🎯 Bowlers", "⭐ Player of Match"])
+    tab1, tab2, tab3 = st.tabs([" Batsmen", " Bowlers", " Player of Match"])
 
     with tab1:
         n = st.slider("Top N batsmen", 5, 20, 10)
@@ -476,7 +476,7 @@ elif page == "🏏 Player Analysis":
         sr_df = sr_df[sr_df['balls']>=200]
         sr_df['SR'] = (sr_df['runs']/sr_df['balls']*100).round(1)
         top_sr = sr_df.nlargest(10,'SR')
-        st.markdown("#### ⚡ Highest Strike Rate (min 200 balls)")
+        st.markdown("####  Highest Strike Rate (min 200 balls)")
         fig, ax = plt.subplots(figsize=(9,3.5), facecolor=BG)
         colors_sr = plt.cm.plasma(np.linspace(0.3,0.9,10))
         bars = ax.barh(top_sr.index[::-1], top_sr['SR'][::-1], color=colors_sr, edgecolor='none', height=0.6)
@@ -516,7 +516,7 @@ elif page == "🏏 Player Analysis":
         eco = eco[eco['balls'] >= 120]
         eco['Economy'] = (eco['runs'] / (eco['balls']/6)).round(2)
         best_eco = eco.nsmallest(10,'Economy')
-        st.markdown("#### 💰 Best Economy Rate (min 120 balls)")
+        st.markdown("####  Best Economy Rate (min 120 balls)")
         fig, ax = plt.subplots(figsize=(9,3.5), facecolor=BG)
         colors_eco = plt.cm.Greens(np.linspace(0.4,0.9,10))
         bars = ax.barh(best_eco.index[::-1], best_eco['Economy'][::-1], color=colors_eco, edgecolor='none', height=0.6)
@@ -548,10 +548,10 @@ elif page == "🏏 Player Analysis":
 # ═══════════════════════════════════════════════════════════════
 # PAGE: MATCH INSIGHTS
 # ═══════════════════════════════════════════════════════════════
-elif page == "⚡ Match Insights":
-    st.markdown('<p class="section-header">⚡ Match Insights</p>', unsafe_allow_html=True)
+elif page == " Match Insights":
+    st.markdown('<p class="section-header"> Match Insights</p>', unsafe_allow_html=True)
 
-    tab1, tab2, tab3 = st.tabs(["🪙 Toss Analysis", "📍 Venues", "🏟️ Phase Analysis"])
+    tab1, tab2, tab3 = st.tabs([" Toss Analysis", " Venues", " Phase Analysis"])
 
     with tab1:
         v2 = filtered_valid.copy()
@@ -643,7 +643,7 @@ elif page == "⚡ Match Insights":
             fig.patch.set_facecolor(BG); plt.tight_layout()
             st.pyplot(fig); plt.close()
 
-        st.markdown("#### 🏏 Dismissal Types Distribution")
+        st.markdown("####  Dismissal Types Distribution")
         dismissals = filtered_deliv[filtered_deliv['is_wicket']==True]['wicket_kind'].value_counts()
         fig, ax = plt.subplots(figsize=(9,4), facecolor=BG)
         gc_d = plt.cm.Set2(np.linspace(0,1,len(dismissals)))
@@ -661,8 +661,8 @@ elif page == "⚡ Match Insights":
 # ═══════════════════════════════════════════════════════════════
 # PAGE: HEAD TO HEAD
 # ═══════════════════════════════════════════════════════════════
-elif page == "🔍 Head-to-Head":
-    st.markdown('<p class="section-header">🔍 Head-to-Head Analysis</p>', unsafe_allow_html=True)
+elif page == " Head-to-Head":
+    st.markdown('<p class="section-header"> Head-to-Head Analysis</p>', unsafe_allow_html=True)
 
     all_team_names = sorted(valid['match_winner'].dropna().unique().tolist())
     col1, col2 = st.columns(2)
@@ -705,7 +705,7 @@ elif page == "🔍 Head-to-Head":
             fig.patch.set_facecolor(BG); st.pyplot(fig); plt.close()
 
         with col2:
-            st.markdown("#### 📋 Match History")
+            st.markdown("####  Match History")
             hist = h2h_valid[['season','match_winner','win_by_runs','win_by_wickets']].copy()
             hist.columns = ['Season','Winner','By Runs','By Wickets']
             hist = hist.sort_values('Season', ascending=False)
@@ -713,7 +713,7 @@ elif page == "🔍 Head-to-Head":
 
         # Season-wise wins
         if len(h2h_valid) > 0:
-            st.markdown("#### 📅 Season-wise Results")
+            st.markdown("####  Season-wise Results")
             sw = h2h_valid.groupby(['season','match_winner']).size().unstack(fill_value=0)
             fig, ax = plt.subplots(figsize=(10,3.5), facecolor=BG)
             x = np.arange(len(sw.index))
@@ -733,10 +733,10 @@ elif page == "🔍 Head-to-Head":
 # ═══════════════════════════════════════════════════════════════
 # PAGE: DETAILS  (Player Details + Team Details)
 # ═══════════════════════════════════════════════════════════════
-elif page == "🔎 Details":
-    st.markdown('<p class="section-header">🔎 Details</p>', unsafe_allow_html=True)
+elif page == " Details":
+    st.markdown('<p class="section-header"> Details</p>', unsafe_allow_html=True)
 
-    sub = st.tabs(["👤 Player Details", "🏟️ Team Details"])
+    sub = st.tabs([" Player Details", " Team Details"])
 
     # ─────────────────────────────────────────────
     # SUB-TAB 1 : PLAYER DETAILS
@@ -777,12 +777,12 @@ elif page == "🔎 Details":
         # ── Seasons played
         seasons_played = sorted(p_bat['season_id'].dropna().unique().tolist())
 
-        st.markdown(f"### 👤 {sel_player}")
-        st.markdown(f"<div class='insight-box'>🏏 Teams: <b>{', '.join(teams_for) if teams_for else 'N/A'}</b> &nbsp;|&nbsp; 📅 Seasons: <b>{seasons_played[0] if seasons_played else 'N/A'} – {seasons_played[-1] if seasons_played else 'N/A'}</b> &nbsp;|&nbsp; ⭐ POTM Awards: <b>{potm_count}</b></div>", unsafe_allow_html=True)
+        st.markdown(f"###  {sel_player}")
+        st.markdown(f"<div class='insight-box'> Teams: <b>{', '.join(teams_for) if teams_for else 'N/A'}</b> &nbsp;|&nbsp;  Seasons: <b>{seasons_played[0] if seasons_played else 'N/A'} – {seasons_played[-1] if seasons_played else 'N/A'}</b> &nbsp;|&nbsp;  POTM Awards: <b>{potm_count}</b></div>", unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
 
         # KPI row — batting
-        st.markdown("#### 🏏 Batting")
+        st.markdown("####  Batting")
         bc1,bc2,bc3,bc4,bc5,bc6 = st.columns(6)
         for col, val, lbl, color in [
             (bc1, f"{total_runs:,}",  "Total Runs",    ACC1),
@@ -799,7 +799,7 @@ elif page == "🔎 Details":
         bc8.markdown(f'<div class="metric-card"><p class="metric-value" style="color:{ACC1}">{sixes}</p><p class="metric-label">Sixes</p></div>', unsafe_allow_html=True)
 
         # KPI row — bowling
-        st.markdown("#### 🎯 Bowling")
+        st.markdown("####  Bowling")
         wc1,wc2,wc3,wc4 = st.columns(4)
         for col, val, lbl, color in [
             (wc1, f"{total_wkts}",  "Total Wickets", ACC2),
@@ -846,7 +846,7 @@ elif page == "🔎 Details":
                 st.pyplot(fig); plt.close()
 
         # Runs per team
-        st.markdown("#### 🏏 Runs Scored Against Each Team")
+        st.markdown("####  Runs Scored Against Each Team")
         rpt = p_bat.groupby('team_bowling')['batter_runs'].sum().sort_values(ascending=False)
         if not rpt.empty:
             fig, ax = plt.subplots(figsize=(10,3.5), facecolor=BG)
@@ -909,11 +909,11 @@ elif page == "🔎 Details":
 
         st.markdown(f"### <span style='color:{t_color}'>{sel_team}</span>", unsafe_allow_html=True)
         title_str = ', '.join(map(str, title_years)) if title_years else 'None'
-        st.markdown(f"<div class='insight-box'>🏆 IPL Titles: <b>{len(title_years)}</b> &nbsp;|&nbsp; 🗓️ Won in: <b>{title_str}</b> &nbsp;|&nbsp; 📅 Seasons: <b>{seasons_in[0]} – {seasons_in[-1]}</b></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='insight-box'> IPL Titles: <b>{len(title_years)}</b> &nbsp;|&nbsp;  Won in: <b>{title_str}</b> &nbsp;|&nbsp;  Seasons: <b>{seasons_in[0]} – {seasons_in[-1]}</b></div>", unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
 
         # KPI row 1
-        st.markdown("#### 📊 Match Record")
+        st.markdown("####  Match Record")
         mc1,mc2,mc3,mc4,mc5 = st.columns(5)
         for col, val, lbl, color in [
             (mc1, total_matches,        "Matches Played",  t_color),
@@ -925,7 +925,7 @@ elif page == "🔎 Details":
             col.markdown(f'<div class="metric-card"><p class="metric-value" style="color:{color}">{val}</p><p class="metric-label">{lbl}</p></div>', unsafe_allow_html=True)
 
         # KPI row 2
-        st.markdown("#### 🏏 Batting & Bowling")
+        st.markdown("####  Batting & Bowling")
         rc1,rc2,rc3,rc4,rc5,rc6 = st.columns(6)
         for col, val, lbl, color in [
             (rc1, f"{runs_scored:,}",   "Runs Scored",    ACC1),
@@ -940,8 +940,8 @@ elif page == "🔎 Details":
         # Top performers
         st.markdown("<br>", unsafe_allow_html=True)
         tp1, tp2 = st.columns(2)
-        tp1.markdown(f'<div class="insight-box">🏏 <b>Top Scorer:</b> {top_scorer_s} — {top_scorer_r:,} runs</div>', unsafe_allow_html=True)
-        tp2.markdown(f'<div class="insight-box">🎯 <b>Top Wicket-Taker:</b> {top_wicket_s} — {top_wicket_w} wickets</div>', unsafe_allow_html=True)
+        tp1.markdown(f'<div class="insight-box"> <b>Top Scorer:</b> {top_scorer_s} — {top_scorer_r:,} runs</div>', unsafe_allow_html=True)
+        tp2.markdown(f'<div class="insight-box"> <b>Top Wicket-Taker:</b> {top_wicket_s} — {top_wicket_w} wickets</div>', unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
 
@@ -977,14 +977,14 @@ elif page == "🔎 Details":
             st.pyplot(fig); plt.close()
 
         # Season-by-season record table
-        st.markdown("#### 📋 Season-by-Season Record")
+        st.markdown("####  Season-by-Season Record")
         season_rec = []
         for s in seasons_in:
             sm = t_matches[t_matches['season']==s]
             sw = t_wins[t_wins['season']==s]
             sl = t_losses[t_losses['season']==s]
             sr = t_deliv_bat[t_deliv_bat['season_id']==s]['total_runs'].sum()
-            title = '🏆' if s in title_years else ''
+            title = '' if s in title_years else ''
             season_rec.append({'Season': s, 'Played': len(sm), 'Won': len(sw), 'Lost': len(sl), 'Runs': int(sr), 'Title': title})
         rec_df = pd.DataFrame(season_rec)
         st.dataframe(rec_df, use_container_width=True, hide_index=True,
@@ -997,8 +997,8 @@ elif page == "🔎 Details":
 # ═══════════════════════════════════════════════════════════════
 # PAGE: LIVE PREDICTOR
 # ═══════════════════════════════════════════════════════════════
-elif page == "🔴 Live Predictor":
-    st.markdown('<p class="section-header">🔴 Live Match Predictor</p>', unsafe_allow_html=True)
+elif page == " Live Predictor":
+    st.markdown('<p class="section-header"> Live Match Predictor</p>', unsafe_allow_html=True)
     st.markdown("Fetches **live IPL scores** from Cricbuzz and predicts the winner using current match state + historical IPL win rates.")
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -1120,15 +1120,15 @@ elif page == "🔴 Live Predictor":
         st.pyplot(fig); plt.close()
 
     # ─────────────────────────────────────────────
-    live_tab, demo_tab = st.tabs(["🔴 Live Matches", "🧪 Demo / Simulate"])
+    live_tab, demo_tab = st.tabs([" Live Matches", " Demo / Simulate"])
 
     # ── LIVE TAB
     with live_tab:
         col_btn, col_auto = st.columns([2,1])
         with col_btn:
-            fetch_btn = st.button("🔄 Fetch Live IPL Matches", use_container_width=True)
+            fetch_btn = st.button(" Fetch Live IPL Matches", use_container_width=True)
         with col_auto:
-            auto_refresh = st.checkbox("⏱️ Auto-refresh every 60s")
+            auto_refresh = st.checkbox("⏱ Auto-refresh every 60s")
 
         if auto_refresh:
             import time
@@ -1141,10 +1141,10 @@ elif page == "🔴 Live Predictor":
                     live_list  = parse_live_matches(raw)
 
                 if not live_list:
-                    st.warning("⚠️ No live IPL matches right now. Check back during an IPL match window.")
-                    st.info(f"📊 Total live matches across all cricket: {sum(len(sg.get('seriesAdWrapper',{}).get('matches',[])) for tg in raw.get('typeMatches',[]) for sg in tg.get('seriesMatches',[]))}")
+                    st.warning(" No live IPL matches right now. Check back during an IPL match window.")
+                    st.info(f" Total live matches across all cricket: {sum(len(sg.get('seriesAdWrapper',{}).get('matches',[])) for tg in raw.get('typeMatches',[]) for sg in tg.get('seriesMatches',[]))}")
                 else:
-                    st.success(f"✅ {len(live_list)} live IPL match(es) found!")
+                    st.success(f" {len(live_list)} live IPL match(es) found!")
                     for m in live_list:
                         c1 = TEAM_COLORS.get(m['team1'], ACC2)
                         c2 = TEAM_COLORS.get(m['team2'], ACC1)
@@ -1156,7 +1156,7 @@ elif page == "🔴 Live Predictor":
                         st.markdown(f"""
                         <div style="background:{CARD};border:1px solid #30363d;border-radius:14px;padding:20px;margin:12px 0;">
                             <div style="font-size:0.75rem;color:{MUTED};margin-bottom:10px;">
-                                🏟️ {m['venue']}, {m['city']} &nbsp;·&nbsp; {m['desc']} &nbsp;·&nbsp; {m['series']}
+                                 {m['venue']}, {m['city']} &nbsp;·&nbsp; {m['desc']} &nbsp;·&nbsp; {m['series']}
                             </div>
                             <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
                                 <div style="text-align:center;flex:1;">
@@ -1194,7 +1194,7 @@ elif page == "🔴 Live Predictor":
                             <div style="font-size:0.72rem;color:{MUTED}">Win Probability</div>
                         </div>""", unsafe_allow_html=True)
 
-                        st.markdown(f"<div class='insight-box' style='margin-top:10px;'>🏆 <b>Predicted Winner:</b> <span style='color:{wc}'>{winner}</span> &nbsp;—&nbsp; <b>{max(p1,p2)}%</b> probability</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div class='insight-box' style='margin-top:10px;'> <b>Predicted Winner:</b> <span style='color:{wc}'>{winner}</span> &nbsp;—&nbsp; <b>{max(p1,p2)}%</b> probability</div>", unsafe_allow_html=True)
                         st.markdown("---")
 
                 if auto_refresh:
@@ -1202,9 +1202,9 @@ elif page == "🔴 Live Predictor":
 
             except requests.exceptions.HTTPError as e:
                 if '403' in str(e) or '401' in str(e):
-                    st.error("🔒 Invalid API key or not subscribed to Cricbuzz on RapidAPI.")
+                    st.error(" Invalid API key or not subscribed to Cricbuzz on RapidAPI.")
                 elif '429' in str(e):
-                    st.error("⏱️ Rate limit hit. Free tier = 100 req/day.")
+                    st.error("⏱ Rate limit hit. Free tier = 100 req/day.")
                 else:
                     st.error(f"API error: {e}")
             except Exception as e:
@@ -1212,28 +1212,28 @@ elif page == "🔴 Live Predictor":
 
         st.markdown(f"""
         <div class='insight-box'>
-        💡 <b>How prediction works:</b> Live score (runs, wickets, overs) →
+         <b>How prediction works:</b> Live score (runs, wickets, overs) →
         current run rate vs required run rate → wickets in hand factor →
         blended with <b>historical IPL win rates</b> from 2008–2025 dataset.
         </div>""", unsafe_allow_html=True)
 
     # ── DEMO TAB
     with demo_tab:
-        st.markdown("#### 🧪 Simulate Any Match State")
+        st.markdown("####  Simulate Any Match State")
         all_team_names = sorted(valid['match_winner'].dropna().unique().tolist())
         demo_col1, demo_col2 = st.columns(2)
         with demo_col1:
-            d_team1  = st.selectbox("🔵 Team 1 (Batting First)", all_team_names, key='demo_t1')
+            d_team1  = st.selectbox(" Team 1 (Batting First)", all_team_names, key='demo_t1')
             d_runs1  = st.number_input("1st Innings Runs", 0, 300, 165, key='demo_r1')
             d_wkts1  = st.number_input("1st Innings Wickets", 0, 10, 6, key='demo_w1')
             d_overs1 = st.number_input("1st Innings Overs", 0.0, 20.0, 20.0, step=0.1, key='demo_o1')
         with demo_col2:
-            d_team2  = st.selectbox("🔴 Team 2 (Chasing)", [t for t in all_team_names if t != d_team1], key='demo_t2')
+            d_team2  = st.selectbox(" Team 2 (Chasing)", [t for t in all_team_names if t != d_team1], key='demo_t2')
             d_runs2  = st.number_input("2nd Innings Runs", 0, 300, 87, key='demo_r2')
             d_wkts2  = st.number_input("2nd Innings Wickets", 0, 10, 3, key='demo_w2')
             d_overs2 = st.number_input("2nd Innings Overs", 0.0, 20.0, 11.2, step=0.1, key='demo_o2')
 
-        if st.button("🚀 Predict", use_container_width=True, key='demo_predict'):
+        if st.button(" Predict", use_container_width=True, key='demo_predict'):
             t1_raw_d = {'inngs1': {'runs': d_runs1, 'wickets': d_wkts1, 'overs': d_overs1}}
             t2_raw_d = {'inngs1': {'runs': d_runs2, 'wickets': d_wkts2, 'overs': d_overs2}} if d_runs2 > 0 or d_overs2 > 0 else {}
             p1d, p2d = win_probability(d_team1, d_team2, t1_raw_d, t2_raw_d)
@@ -1280,13 +1280,13 @@ elif page == "🔴 Live Predictor":
                 <div style="font-size:0.72rem;color:{MUTED}">Win Probability</div>
             </div>""", unsafe_allow_html=True)
 
-            st.markdown(f"<div class='insight-box' style='margin-top:12px;'>🏆 <b>Predicted Winner:</b> <span style='color:{wcd}'>{winner_d}</span> &nbsp;—&nbsp; <b>{max(p1d,p2d)}%</b> probability</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='insight-box' style='margin-top:12px;'> <b>Predicted Winner:</b> <span style='color:{wcd}'>{winner_d}</span> &nbsp;—&nbsp; <b>{max(p1d,p2d)}%</b> probability</div>", unsafe_allow_html=True)
 
 # ── Footer ────────────────────────────────────────────────────
 st.markdown("---")
 st.markdown("""
 <div style='text-align:center; color:#8b949e; font-size:0.78rem; padding:10px'>
-    🏏 IPL Analytics Dashboard &nbsp;|&nbsp; Built with Python · pandas · Scikit-learn · Streamlit
+     IPL Analytics Dashboard &nbsp;|&nbsp; Built with Python · pandas · Scikit-learn · Streamlit
     &nbsp;|&nbsp; Dataset: Kaggle IPL 2008–2025 &nbsp;|&nbsp; <b style='color:#f97316'>Placement Project</b>
 </div>
 """, unsafe_allow_html=True)
